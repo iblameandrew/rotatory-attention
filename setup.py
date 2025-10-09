@@ -16,5 +16,6 @@ setup(
         "kerykeion",
         "pytz",
         "python-dotenv",
+        "tiktoken",
     ],
 )

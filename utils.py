@@ -1,29 +1,148 @@
-# noa/utils.py
+
 import json
 import datetime
 import pytz
+import tiktoken
+from typing import List, Dict, Any
 from kerykeion import AstrologicalSubject, Report, NatalAspects
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
+import re
 
+
+def extract_json_from_llm_response(response_string):
+  """
+  Strips boilerplate from an LLM response and extracts only the JSON content.
+
+  Args:
+    response_string: The string response from the LLM containing JSON.
+
+  Returns:
+    A Python dictionary or list representing the parsed JSON, or None if no
+    valid JSON is found.
+  """
+  try:
+    # Find the first occurrence of '{' or '['
+    start_index = -1
+    for i, char in enumerate(response_string):
+        if char in ['{', '[']:
+            start_index = i
+            break
+
+    if start_index == -1:
+        return None
+
+    # Attempt to decode the JSON from the starting position
+    # The JSONDecoder will parse until it reaches the end of a valid JSON object
+    decoder = json.JSONDecoder()
+    obj, end_index = decoder.raw_decode(response_string[start_index:])
+    return obj
+
+  except json.JSONDecodeError:
+    # If the initial attempt fails, it might be due to trailing characters.
+    # We can try a more robust method of finding the balanced braces/brackets.
+    if start_index != -1:
+        brace_level = 0
+        bracket_level = 0
+        end_index = -1
+        start_char = response_string[start_index]
+
+        for i in range(start_index, len(response_string)):
+            char = response_string[i]
+            if char == '{':
+                brace_level += 1
+            elif char == '}':
+                brace_level -= 1
+            elif char == '[':
+                bracket_level += 1
+            elif char == ']':
+                bracket_level -= 1
+
+            if start_char == '{' and brace_level == 0 and bracket_level == 0:
+                end_index = i + 1
+                break
+            elif start_char == '[' and bracket_level == 0 and brace_level == 0:
+                end_index = i + 1
+                break
+        
+        if end_index != -1:
+            try:
+                return json.loads(response_string[start_index:end_index])
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
+def strip_think_tags(text: str) -> str:
+    """
+    Removes <think>...</think> tags and their content from a string.
+
+    Args:
+        text: The input string that may contain think tags.
+
+    Returns:
+        A new string with all think tags and their inner content removed.
+    """
+    pattern = r"<think>.*?</think>"
+    return re.sub(pattern, "", text, flags=re.DOTALL)
+
+# --- Astrological Data Functions (from astro.py) ---
 class TokenBudgetManager(BaseCallbackHandler):
-    """A callback handler to track and enforce a token budget."""
-    def __init__(self, initial_budget: int):
+    """
+    A callback handler to track and enforce a token budget using tiktoken.
+    This method is provider-agnostic and works by tokenizing inputs and outputs.
+    """
+    def __init__(self, initial_budget: int, model_name: str = "gpt-4"):
+        """
+        Initializes the token budget manager.
+        Args:
+            initial_budget: The total number of tokens allowed for the entire run.
+            model_name: The name of the model being used, to select the correct tokenizer.
+                        Defaults to "gpt-4", but will fall back to a general-purpose tokenizer.
+        """
+        try:
+            # Get the correct encoding for the specified model.
+            self.encoding = tiktoken.encoding_for_model(model_name)
+        except KeyError:
+            # Fallback to a common encoding if the model name is not recognized.
+            print(f"Warning: Model '{model_name}' not found for tokenization. Using 'cl100k_base' encoding as a fallback.")
+            self.encoding = tiktoken.get_encoding("cl100k_base")
+            
         self.token_budget = initial_budget
         self.total_tokens_used = 0
+        self._prompt_tokens = 0
 
+    def on_llm_start(self, serialized: Dict[str, Any], prompts: List[str], **kwargs) -> None:
+        """Called at the start of an LLM call to count prompt tokens."""
+        # Sum the token count for all prompts sent to the model.
+        self._prompt_tokens = sum(len(self.encoding.encode(prompt)) for prompt in prompts)
+        
     def on_llm_end(self, response: LLMResult, **kwargs) -> None:
-        """Called at the end of an LLM call."""
-        token_usage = response.llm_output.get('token_usage', {})
-        total_tokens = token_usage.get('total_tokens', 0)
+        """Called at the end of an LLM call to count completion tokens and update the budget."""
+        completion_tokens = 0
+        # The response.generations is a list of lists of Generation objects.
+        for generations in response.generations:
+            for generation in generations:
+                completion_tokens += len(self.encoding.encode(generation.text))
         
-        self.total_tokens_used += total_tokens
-        self.token_budget -= total_tokens
+        # Calculate total tokens for this specific API call
+        call_total_tokens = self._prompt_tokens + completion_tokens
         
-        print(f"Tokens used in last call: {total_tokens}. Total used: {self.total_tokens_used}. Budget remaining: {self.token_budget}")
+        # Update the cumulative total and the remaining budget
+        self.total_tokens_used += call_total_tokens
+        self.token_budget -= call_total_tokens
 
+        print(
+            f"Tokens used: [Prompt: {self._prompt_tokens}, Completion: {completion_tokens}, Total: {call_total_tokens}]. "
+            f"Cumulative used: {self.total_tokens_used}. Budget remaining: {self.token_budget}"
+        )
+
+        # Check if the budget has been exceeded
         if self.token_budget <= 0:
-            raise ValueError(f"Token budget exhausted. Halting execution.")
+            raise ValueError(f"Token budget exhausted. Halting execution. Total tokens used: {self.total_tokens_used}")
+
+        # Reset prompt tokens for the next call
+        self._prompt_tokens = 0
 
 def trim_astrological_report(full_report_text: str) -> str:
     """Trims the full astrological report to only major aspects for LLM analysis."""

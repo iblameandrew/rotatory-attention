@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Causality - Become Certain in Uncertain Times</title>
+    <title>Causality - Become certain in uncertain times</title>
     
     <!-- Google Fonts for sophisticated typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&family=VT323&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' x='50%' text-anchor='middle'>👾</text></svg>">
 
     <style>
         /* --- CSS VARIABLES & GLOBAL STYLES --- */
@@ -17,8 +18,9 @@
             --color-text-primary: #E0E5F0;    /* A soft white for high contrast */
             --color-text-secondary: #8892b0;  /* A muted blue-gray for subtitles and paragraphs */
             --color-border: rgba(136, 146, 176, 0.2); /* A faint border color */
+            --color-retro-green: #39FF14;      /* A vibrant, retro terminal green */
 
-            --font-display: 'Roboto Mono', monospace; /* The "pixelated" font for titles */
+            --font-display: 'VT323', monospace; /* The "pixelated" font for titles */
             --font-sans: 'Montserrat', sans-serif;  /* A clean, modern sans-serif for body text */
         }
 
@@ -33,6 +35,24 @@
             margin: 0;
             line-height: 1.7;
         }
+
+        /* --- KEYFRAME ANIMATIONS FOR RETRO EFFECT --- */
+        @keyframes flicker {
+            0%, 18%, 22%, 25%, 53%, 57%, 100% {
+                opacity: 1;
+            }
+            20%, 24%, 55% {
+                opacity: 0.8;
+                text-shadow: none;
+            }
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
 
         /* --- HERO BANNER --- */
         .hero {
@@ -76,11 +96,16 @@
 
         .hero-title {
             font-family: var(--font-display);
-            font-size: clamp(3rem, 12vw, 7rem);
-            font-weight: 700;
-            color: #FFF;
+            font-size: clamp(4.5rem, 15vw, 9rem);
+            font-weight: 400;
+            color: white;
             margin: 0;
-            letter-spacing: -2px;
+            letter-spacing: 0.1em;
+            animation: flicker 2s linear infinite;
+        }
+
+        .terminal-cursor {
+            animation: blink 1s step-end infinite;
         }
 
         .hero-tagline {
@@ -90,7 +115,10 @@
             letter-spacing: 0.3em;
             text-transform: uppercase;
             color: var(--color-text-secondary);
-            margin: 1rem 0 0 0.3em;
+            /* FIX: Use auto margins for horizontal centering */
+            margin: 1.5rem auto 0;
+            max-width: 650px; /* Constrain line length for readability */
+            line-height: 1.5; /* Added for better spacing on wrap */
         }
 
         .scroll-prompt {
@@ -139,7 +167,6 @@
             font-size: 1.1rem;
             color: var(--color-text-secondary);
             max-width: 720px;
-            /* FIX: Centering the paragraph block, while text inside remains left-aligned */
             margin-left: auto;
             margin-right: auto;
             margin-bottom: 1.5rem;
@@ -147,11 +174,10 @@
 
         /* --- THE PROBLEM SECTION --- */
         .problem-section {
-            text-align: center; /* Center the h2 and the paragraph block */
+            text-align: center;
         }
         .problem-section p {
-             /* FIX: Text within this specific paragraph should be left-aligned for readability */
-            text-align: left;
+            text-align: center;
         }
         .problem-section h2 {
             font-family: var(--font-sans);
@@ -167,17 +193,17 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 50px;
-            text-align: left; /* Text within columns should be left-aligned */
+            text-align: left;
         }
         .solution-item h3 {
             font-family: var(--font-display);
-            font-size: 1.5rem;
+            font-size: 2rem;
             color: var(--color-text-primary);
             margin-bottom: 1rem;
         }
         .solution-item p {
             font-size: 1rem;
-            margin-left: 0; /* Override auto margin for grid items */
+            margin-left: 0;
             margin-right: 0;
         }
         
@@ -192,22 +218,20 @@
             border: none;
         }
         .philosophy-section p {
-             font-family: var(--font-display);
-        font-size: clamp(1.5rem, 4vw, 2rem);
-        line-height: 1.5;
-        color: var(--color-text-primary);
-    
-        max-width: none;
-        margin-bottom: 0; 
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 2.8rem);
+            line-height: 1.5;
+            color: var(--color-text-primary);
+            max-width: none;
+            margin-bottom: 0; 
         }
         
         /* --- "WHO IS THIS FOR?" SECTION --- */
         .audience-section {
-            text-align: center; /* Center the paragraph block */
+            text-align: center;
         }
         .audience-section p {
-            /* FIX: Text within this paragraph should also be left-aligned */
-            text-align: left;
+            text-align: center;
         }
 
         /* --- CALL TO ACTION (CTA) SECTION --- */
@@ -227,7 +251,7 @@
             border: 1px solid var(--color-text-secondary);
             border-radius: 4px;
             font-family: var(--font-display);
-            font-size: 1rem;
+            font-size: 1.2rem;
             letter-spacing: 0.1em;
             text-decoration: none;
             text-transform: uppercase;
@@ -241,29 +265,70 @@
             transform: translateY(-3px);
         }
 
+        /* --- STICKY BOTONERA WIDGET --- */
+        .sticky-botonera {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-widget {
+            padding: 15px 10px;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            font-family: var(--font-display);
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            text-decoration: none;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+            background-color: rgba(10, 15, 33, 0.8);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            transition: all 0.3s ease-in-out;
+        }
+
+        .btn-widget:hover {
+            border-color: var(--color-text-primary);
+            color: var(--color-text-primary);
+            background-color: rgba(136, 146, 176, 0.2);
+            transform: translateX(-5px);
+        }
+
         /* --- FOOTER --- */
         .site-footer {
-            padding: 40px 20px;
             text-align: center;
-        }
-        .site-footer p {
-            margin: 0;
-            font-size: 0.8rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
     </style>
 </head>
 <body>
 
+    <!-- STICKY BOTONERA WIDGET -->
+    <div class="sticky-botonera">
+        <a href="#register" class="btn-widget">Register</a>
+        <a href="#login" class="btn-widget">Login</a>
+        <a href="#problem" class="btn-widget">Explore</a>
+    </div>
+
     <!-- HERO BANNER SECTION -->
     <header class="hero">
         <video autoplay muted loop playsinline id="bg-video">
             <!-- IMPORTANT: Replace this with the actual path to your video file. -->
-            <source src="static/21246fff-7625-4307-a84c-481ea4fb62e4.mp4" type="video/mp4">
+            <source src="../static/21246fff-7625-4307-a84c-481ea4fb62e4.mp4" type="video/mp4">
             Your browser does not support the video tag.
         </video>
         <div class="hero-overlay"></div>
         <div class="hero-content">
-            <h1 class="hero-title">causality</h1>
+            <h1 class="hero-title"><span class="terminal-cursor">></span>causality</h1>
             <p class="hero-tagline">BECOME CERTAIN IN UNCERTAIN TIMES</p>
         </div>
         <a href="#problem" class="scroll-prompt">
@@ -277,27 +342,31 @@
         <!-- THE PROBLEM SECTION -->
         <section id="problem" class="content-section problem-section">
             <div class="container">
-                <h2>How can you be worthy of a miraculous outcome when the odds are harsh?</h2>
-                <p>Escapism leads to stagnation, and stagnation punishes us with the same outcome we want to get away from. To become an exception to something that has crushed thousands before requires more than a single perspective. It requires foresight.</p>
+                <h2>Playing the Game Without the Rules</h2>
+                <p>You replay conversations in your head. You over-analyze every possible outcome of an interaction until you're paralyzed. For many of us, especially if you're neurodivergent or deal with social anxiety, it feels like you're trying to play a complex game where the other players are unpredictable. Causality is the answer to this.</p>
             </div>
         </section>
 
         <!-- THE SOLUTION SECTION -->
         <section id="solution" class="content-section">
              <div class="container">
-                <h2 class="section-title">A Time Machine for Consequences</h2>
+                <h2 class="section-title">A Strategy Guide for Real Life</h2>
                 <div class="solution-grid">
                     <div class="solution-item">
-                        <h3>A Swarm of Cognitive Agents</h3>
-                        <p>Our unique approach to computational psychology simulates hundreds of parallel personas relevant to your context. This swarm of agents reacts to your proposed actions, minimizing personal bias and revealing approaches you never would have seen alone.</p>
+                        <h3>Create Your "Campaign"</h3>
+                        <p>Start by describing the scenario you're facing—a tough conversation with your boss, a family disagreement, a critical job interview. This is your quest, and Causality is your Dungeon Master's Guide.</p>
                     </div>
                     <div class="solution-item">
-                        <h3>Simulate Before You Act</h3>
-                        <p>Causality simulates the receiving end of your actions. Study how your scenario will react and get feedback to reformulate your decisions. Adjust the mark between the spirit of your intent and the desired outcome.</p>
+                        <h3>Generate Your "NPCs"</h3>
+                        <p>Using an advanced model based on updated Jungian psychology, Causality creates detailed profiles for each person involved. They become characters with their own motivations, fears, and likely reactions—a character sheet for the people in your life.</p>
                     </div>
                     <div class="solution-item">
-                        <h3>Sharpen Your Intuition</h3>
-                        <p>This isn't about crafting your actions for you; you are still responsible. Think of Causality as a tool to do heavy, deep thinking into the realm of consequences, allowing you to maximize receptivity and minimize vulnerability.</p>
+                        <h3>Get X-Ray Vision</h3>
+                        <p>The simulation gives you "X-ray vision" into the social dynamics. See the most probable reaction chains, identify leverage points, and understand the underlying drivers of each person. Turn the "black box" of human behavior into a system you can analyze.</p>
+                    </div>
+                    <div class="solution-item">
+                        <h3>Practice and Strategize</h3>
+                        <p>You can't save-scum in real life, but you can run practice encounters here. Think of it as a debugger for human interaction. The goal isn't to be a magic 8-ball; it's to help you plan, prepare, and walk into the real situation with confidence.</p>
                     </div>
                 </div>
             </div>
@@ -306,8 +375,8 @@
         <!-- THE PHILOSOPHY SECTION -->
         <section class="content-section philosophy-section">
             <div class="container">
-                <blockquote cite="#" style="text-align: center;">
-                    <p style="text-align: center;">"The only way out of things, is through. We can positively defeat our primal instinct of fear and desperation by making a solid plan and outsmarting the monster below our bed."</p>
+                <blockquote cite="#">
+                    <p>"Monsters are undone by understanding them. Social situations can feel like monsters. Causality helps you learn their patterns."</p>
                 </blockquote>
             </div>
         </section>
@@ -316,15 +385,15 @@
         <section id="audience" class="content-section audience-section">
             <div class="container">
                 <h2 class="section-title">Who is this for?</h2>
-                <p>For managers, marketers, job seekers, and guides. More so, for anyone with deep, severe problems they can't find a way around. For those who feel the stakes in their environment make them feel unsafe. We believe in second chances, and Causality is here to show you a way out.</p>
+                <p>For the over-thinkers, the systems-builders, the neurodivergent, and the socially anxious. It's for anyone who has ever felt more comfortable with logic and code than with the seemingly arbitrary chaos of human interaction. Whether you're a manager, a job seeker, or simply someone trying to navigate a difficult personal problem, Causality is built to give you a strategic advantage.</p>
             </div>
         </section>
 
         <!-- CALL TO ACTION SECTION -->
         <section id="cta" class="content-section cta-section">
             <div class="container">
-                 <h2>A new era of assertiveness and freedom starts now.</h2>
-                 <a href="#contact" class="btn-ghost">Explore the Platform</a>
+                 <h2>Walk into the room feeling prepared, not terrified.</h2>
+                 <a href="#contact" class="btn-ghost">Start Your First Simulation</a>
             </div>
         </section>
     </main>

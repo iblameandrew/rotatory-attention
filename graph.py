@@ -1,10 +1,9 @@
-# noa/graph.py
-
 import functools
 import json
 from typing import TypedDict, Dict, List, Annotated
 from langchain_core.output_parsers import JsonOutputParser
 from langgraph.graph import StateGraph, END
+from utils import strip_think_tags
 
 class AgentState(TypedDict):
     """
@@ -17,6 +16,7 @@ class AgentState(TypedDict):
         turn_messages: A list of messages exchanged in the current turn.
         final_reactions: The collected public reactions from all agents.
         user_action: The initial action that kicks off the simulation.
+        is_local: A boolean indicating if the LLM is running locally.
     """
     agent_prompts: Dict[str, str]
     agent_llms: Dict[str, any]
@@ -24,6 +24,7 @@ class AgentState(TypedDict):
     turn_messages: List[Dict[str, str]]
     final_reactions: Dict[str, str]
     user_action: str
+    is_local: bool
 
 def agent_node_fn(state: AgentState, agent_name: str) -> dict:
     """
@@ -45,9 +46,15 @@ def agent_node_fn(state: AgentState, agent_name: str) -> dict:
     
     # 3. Invoke the LLM
     try:
-        response_str = llm.invoke(formatted_prompt)
+        raw_response = llm.invoke(formatted_prompt)
+        # Handle difference between local (Ollama) and remote (Gemini) responses
+        if not state.get('is_local', True) and hasattr(raw_response, 'content'):
+            response_str = strip_think_tags(raw_response.content)
+        else:
+            response_str = strip_think_tags(raw_response)
         response_json = json.loads(response_str)
-    except (json.JSONDecodeError, AttributeError) as e:
+
+    except (json.JSONDecodeError, AttributeError, TypeError) as e:
         # Fallback if the LLM fails to produce valid JSON
         print(f"Error decoding LLM response for {agent_name}: {e}. Using raw response as public reaction.")
         response_json = {"public_reaction": str(response_str), "private_message": None}
