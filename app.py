@@ -4,39 +4,13 @@ import json
 import time
 from dotenv import load_dotenv
 from noa import NOA
-from chains import get_chain, INTERROGATOR_PROMPT
+from chains import get_chain # Removed INTERROGATOR_PROMPT
 from utils import strip_think_tags, TokenBudgetManager
 from langchain_ollama.llms import OllamaLLM
 from langchain_google_genai import ChatGoogleGenerativeAI
 import os
 
 load_dotenv()
-
-# --- Interrogation Function ---
-def get_interrogator_response(conversation_history_str):
-    """Invokes the LLM to get the next interrogation question or 'done'."""
-    try:
-        # This uses the model settings from the main UI for consistency
-        if st.session_state.use_local:
-            llm = OllamaLLM(model=st.session_state.model_name)
-            response = llm.invoke(st.session_state.conversation_history_str)
-        else:
-            gemini_api_key = os.getenv("GEMINI_API_KEY")
-            llm = ChatGoogleGenerativeAI(model=st.session_state.model_name, google_api_key=gemini_api_key)
-            response = llm.invoke(conversation_history_str).content
-
-        chain = get_chain(llm, INTERROGATOR_PROMPT)
-        raw_response = chain.invoke({"conversation_history": conversation_history_str})
-
-        if not st.session_state.use_local and hasattr(raw_response, 'content'):
-             response = strip_think_tags(raw_response.content)
-        else:
-             response = strip_think_tags(raw_response)
-
-        return response.strip()
-    except Exception as e:
-        st.error(f"Error communicating with the interrogator model: {e}")
-        return "done" # Fail safe to allow simulation to proceed
 
 # --- Log Collector Callback ---
 def log_collector_callback(message: str, level: str):
@@ -50,25 +24,62 @@ st.markdown("This app demonstrates the persistent, multi-query features of the `
 
 # --- Initialize Session State ---
 defaults = {
-    'phase': 'setup', # 'setup', 'interrogation', 'simulation'
+    'phase': 'setup', # 'setup', 'simulation'
     'noa_instance': None,
     'simulation_logs': [],
     'report': "",
     'judged_intention': {},
+    'logotherapy': "",
+    'fragmented_prompts': {},
+    'final_reactions': {},
     'user_action': "I'm going to announce a new project that will disrupt the current team structure.",
     'user_name': "Alex",
     'user_birth_date': datetime.date(1990, 5, 15),
     'user_story': "Alex is a team lead who feels the current workflow is inefficient and wants to introduce a new system.",
-    'conversation': [],
     'use_local': False,
-    'model_name': "gemini-1.5-flash",
+    'model_name': "gemini-2.5-flash",
     'recommendations': [],
     'rec_use_local': False, # Dedicated state for recommendation LLM
-    'rec_model_name': "gemini-1.5-flash", # Dedicated state for recommendation LLM
+    'rec_model_name': "gemini-2.5-flash", # Dedicated state for recommendation LLM
+    'token_manager': None,
+    'saved_token_budget': 50000,
 }
 for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
+
+# --- Sidebar for Token Monitoring (with Placeholders) ---
+st.sidebar.title("📊 Live Monitoring")
+token_budget_placeholder = st.sidebar.empty()
+tokens_used_placeholder = st.sidebar.empty()
+token_progress_placeholder = st.sidebar.empty()
+token_error_placeholder = st.sidebar.empty()
+
+def update_sidebar_metrics():
+    """Renders or updates the token metrics in the sidebar."""
+    if st.session_state.get('token_manager'):
+        budget = st.session_state.saved_token_budget
+        used_tokens = st.session_state.token_manager.total_tokens_used
+
+        token_budget_placeholder.metric(label="Total Token Budget", value=f"{budget}")
+        tokens_used_placeholder.metric(label="Tokens Consumed", value=f"{used_tokens}")
+
+        if budget > 0:
+            progress = min(used_tokens / budget, 1.0)
+            token_progress_placeholder.progress(progress)
+        else:
+            token_progress_placeholder.progress(0.0)
+
+        if used_tokens > budget:
+            token_error_placeholder.error("Token budget exceeded!")
+        else:
+            token_error_placeholder.empty()
+    else:
+        token_budget_placeholder.info("Simulation not started yet. Token tracking will begin after setup.")
+
+# Initial draw of the sidebar
+update_sidebar_metrics()
+
 
 # --- Main Feature Tabs ---
 tab1, tab2, tab3 = st.tabs(["🌐 Network Simulation", "💡 Venue Recommendations", "🧠 Memory Management"])
@@ -77,7 +88,7 @@ with tab1:
     # --- PHASE 1: SETUP ---
     if st.session_state.phase == 'setup':
         st.header("Phase 1: Initial Setup")
-        st.markdown("Define the user, initial context, and simulation parameters. This will kick off a brief, AI-driven interview to flesh out the scenario before building the network.")
+        st.markdown("Define the user, initial context, and simulation parameters. This will create the agent network and run the first simulation directly.")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -89,96 +100,75 @@ with tab1:
         
         with col2:
             st.subheader("Simulation Parameters")
-            st.slider("Number of Agents in Network", 2, 10, 3, key="n_people")
-            st.number_input("Token Budget", 10000, 100000, 50000, 1000, key="token_budget")
+            st.slider("Number of Agents in Network", 2, 100, 3, key="n_people")
+            st.number_input("Token Budget", 10000, 1000000, 50000, 1000, key="token_budget")
             use_local = st.checkbox("Use Local Model (Ollama)", key="use_local")
-            st.text_input("Model Name", "qwen2:7b" if use_local else "gemini-1.5-flash", key="model_name")
+            st.text_input("Model Name", "hf.co/unsloth/Qwen3-4B-Thinking-2507-GGUF:latest" if use_local else "gemini-2.5-flash", key="model_name")
 
-        if st.button("Begin Context Interrogation", type="primary"):
-            st.session_state.conversation = [f"User's Initial Context: {st.session_state.user_story}"]
-            st.session_state.phase = 'interrogation'
-            st.rerun()
-
-    # --- PHASE 2: INTERROGATION ---
-    elif st.session_state.phase == 'interrogation':
-        st.header("Phase 2: Context Interrogation")
-        st.markdown("The AI will ask you questions to build a richer context for the simulation. Answer each question to proceed.")
-
-        # Display conversation history
-        for message in st.session_state.conversation:
-            if message.startswith("User's Initial Context:") or message.startswith("Answer:"):
-                st.info(message)
-            else:
-                st.warning(f"**Question:** {message}")
-
-        conversation_str = "\n".join(st.session_state.conversation)
-        
-        with st.spinner("Waiting for the interrogator's next question..."):
-            next_question = get_interrogator_response(conversation_str)
-
-        if next_question.lower() == 'done':
-            st.success("Context building complete!")
+        if st.button("🚀 Create Network & Run Simulation", type="primary"):
+            st.session_state.saved_token_budget = st.session_state.token_budget
+            st.session_state.token_manager = TokenBudgetManager(initial_budget=st.session_state.saved_token_budget)
             st.session_state.phase = 'simulation'
-            if st.button("🚀 Create Network & Run First Simulation", type="primary"):
-                st.rerun()
-        else:
-            st.session_state.conversation.append(next_question)
-            answer = st.text_area("Your Answer:", key="user_answer")
-            if st.button("Submit Answer"):
-                st.session_state.conversation.append(f"Answer: {answer}")
-                st.rerun()
+            st.rerun()
 
     # --- PHASE 3: SIMULATION ---
     elif st.session_state.phase == 'simulation':
         # Create the network on the first run of this phase
         if not st.session_state.noa_instance:
-            st.header("Phase 3: Running Simulation")
+            st.header("Phase 2: Running Simulation")
             
-            # --- Progress Bar Setup ---
-            progress_bar_placeholder = st.empty()
+            # Placeholder for the main progress bar in the main app area
+            main_progress_placeholder = st.empty()
+
             def update_progress(progress, text=""):
-                progress_bar_placeholder.progress(progress, text=text)
-            # --- End Progress Bar Setup ---
+                """Callback to update the main progress bar AND the sidebar metrics."""
+                main_progress_placeholder.progress(progress, text=text)
+                update_sidebar_metrics() # This is the key change to update the token counter
 
             st.session_state.simulation_logs = []
-            final_story = "\n".join(st.session_state.conversation)
             
             user_context = {
                 "name": st.session_state.user_name,
                 "birth_date": st.session_state.user_birth_date.strftime('%Y-%m-%d'),
-                "story": final_story
+                "story": st.session_state.user_story
             }
 
             try:
+                # The spinner provides a general "working" message
                 with st.spinner('Building network... This may take a moment.'):
-                    # Set initial progress
+                    # The progress bar will be updated by the callback
                     update_progress(0, "Initializing network...")
+                    
                     noa_instance = NOA(
                         user_context=user_context,
                         n_people=st.session_state.n_people,
-                        token_budget=st.session_state.token_budget,
+                        token_budget=st.session_state.saved_token_budget,
                         local=st.session_state.use_local,
                         model=st.session_state.model_name,
                         log_callback=log_collector_callback,
-                        progress_callback=update_progress # Pass the callback here
+                        progress_callback=update_progress, # Pass the enhanced callback
+                        token_manager=st.session_state.token_manager
                     )
                 
-                # Clear the progress bar after completion
-                progress_bar_placeholder.empty()
+                main_progress_placeholder.empty()
 
                 if noa_instance.graph:
                     st.session_state.noa_instance = noa_instance
                     with st.spinner('Running first query...'):
-                         report, judged_intention = noa_instance.query(st.session_state.user_action)
+                         report, judged_intention, fragmented_prompts, final_reactions = noa_instance.query(st.session_state.user_action)
                     st.session_state.report = report
                     st.session_state.judged_intention = judged_intention
+                    st.session_state.fragmented_prompts = fragmented_prompts
+                    st.session_state.final_reactions = final_reactions
                     st.success("✅ Initial simulation complete!")
+                    update_sidebar_metrics() # Final update after query
                     st.rerun()
                 else:
                     st.error("❌ Failed to create the agent network. Check logs for details.")
-                    st.session_state.phase = 'setup' # Go back to setup on failure
+                    st.session_state.phase = 'setup'
+
             except Exception as e:
-                progress_bar_placeholder.empty()
+                main_progress_placeholder.empty()
                 st.error(f"An unexpected error occurred during network creation: {e}")
                 st.session_state.phase = 'setup'
         
@@ -191,13 +181,16 @@ with tab1:
             
             if st.button("⚡ Query Network with New Action", type="primary"):
                 if st.session_state.noa_instance and st.session_state.new_user_action:
-                    st.session_state.simulation_logs = [] # Clear logs for the new query
+                    st.session_state.simulation_logs = []
                     with st.spinner("Querying the network with the new action..."):
                         try:
-                            report, judged_intention = st.session_state.noa_instance.query(st.session_state.new_user_action)
+                            report, judged_intention, fragmented_prompts, final_reactions = st.session_state.noa_instance.query(st.session_state.new_user_action)
                             st.session_state.report = report
                             st.session_state.judged_intention = judged_intention
+                            st.session_state.fragmented_prompts = fragmented_prompts
+                            st.session_state.final_reactions = final_reactions
                             st.success("✅ Query complete!")
+                            update_sidebar_metrics() # Update metrics after query
                         except Exception as e:
                             st.error(f"An error occurred during query: {e}")
                 else:
@@ -226,57 +219,82 @@ with tab1:
                 st.markdown("### Judged User Intention (Council Score)")
                 st.json(st.session_state.judged_intention)
                 st.markdown("---")
-                st.subheader("Agent Social Cards (Full Prompts)")
+               
+                st.subheader("Agent-Level Breakdown")
                 if st.session_state.noa_instance.agent_configs:
-                    for name, config in st.session_state.noa_instance.agent_configs.items():
-                        with st.expander(f"📜 View Social Card for **{name}**"):
-                            st.text_area("System Prompt", config['prompt'], height=400, disabled=True, key=f"prompt_{name}")
+                    for name in st.session_state.noa_instance.agent_configs.keys():
+                        with st.expander(f"📜 Agent Breakdown for **{name}**"):
+                            
+                            # Display Fragmented Prompt
+                            fragmented_prompt = st.session_state.fragmented_prompts.get(name, "This agent's prompt was not fragmented in the last query.")
+                            st.text_area(
+                                "Fragmented Prompt (Used in Last Query)", 
+                                fragmented_prompt, 
+                                height=250, 
+                                disabled=True, 
+                                key=f"fragmented_prompt_{name}"
+                            )
+                            
+                            st.markdown("---")
+
+                            # Display Agent's Reaction
+                            reaction = st.session_state.final_reactions.get(name, "This agent did not provide a public reaction in the last query.")
+                            st.text_area(
+                                "Public Reaction",
+                                reaction,
+                                height=100,
+                                disabled=True,
+                                key=f"reaction_{name}"
+                            )
 
 # --- TAB 2: VENUE RECOMMENDATIONS ---
 with tab2:
     st.header("Get Social Scenario Recommendations")
     st.markdown("Based on a person's birth date, this feature generates social scenarios, independent of the main simulation.")
 
-    col1, col2 = st.columns()
+    col1, col2 = st.columns(2)
 
     with col1:
         rec_birth_date = st.date_input("Enter a Birth Date",datetime.datetime.now(), key="rec_bday")
 
         st.subheader("LLM Configuration")
         rec_use_local = st.checkbox("Use Local Model (Ollama)", key="rec_use_local")
-        st.text_input("Model Name", "qwen2:7b" if rec_use_local else "gemini-1.5-flash", key="rec_model_name")
+        st.text_input("Model Name", "hf.co/unsloth/Qwen3-4B-Thinking-2507-GGUF:latest" if rec_use_local else "gemini-2.5-flash", key="rec_model_name")
 
     if st.button("💡 Get Recommendations", type="primary"):
         with st.spinner("Generating recommendations..."):
             try:
-
+                # Ensure token manager exists before creating callbacks
+                if not st.session_state.get('token_manager'):
+                    st.session_state.token_manager = TokenBudgetManager(initial_budget=st.session_state.saved_token_budget)
+                
+                callbacks = [st.session_state.token_manager]
                 if st.session_state.rec_use_local:
-                    temp_llm = OllamaLLM(model=st.session_state.rec_model_name, format="json")
+                    temp_llm = OllamaLLM(model=st.session_state.rec_model_name, format="json", callbacks=callbacks)
                 else:
-                    
                     gemini_api_key = os.getenv("GEMINI_API_KEY")
-                    temp_llm = ChatGoogleGenerativeAI(model=st.session_state.rec_model_name,  google_api_key=gemini_api_key, response_mime_type="application/json")
+                    temp_llm = ChatGoogleGenerativeAI(model=st.session_state.rec_model_name,  google_api_key=gemini_api_key, response_mime_type="application/json", callbacks=callbacks)
 
                 recommendations = NOA.recommend(
                     llm=temp_llm,
                     user_birth_date=rec_birth_date.strftime('%Y-%m-%d'),
                     local=st.session_state.rec_use_local
                 )
-                recommendations = recommendations['recommendations']
-                for i, rec in enumerate(recommendations):
-                    st.markdown(f"**{i+1}. {rec['title']}**")
-                    st.write(rec['description'])
-                    st.caption(f"💡 **Why we suggest this:** {rec.get('rationale', 'No rationale provided.')}")
-
+                recommendations_list = recommendations.get('recommendations', [])
+                st.session_state.recommendations = recommendations_list # Save to session state
+                update_sidebar_metrics() # Update token count after generation
+                
             except Exception as e:
                 st.error(f"An error occurred: {e}")
 
     if st.session_state.recommendations:
         st.markdown("---")
-        st.success("Here are 10 recommended scenarios:")
+        st.success("Here are your recommended scenarios:")
         for i, rec in enumerate(st.session_state.recommendations):
             st.markdown(f"**{i+1}. {rec['title']}**")
             st.write(rec['description'])
+            st.caption(f"💡 **Why we suggest this:** {rec.get('rationale', 'No rationale provided.')}")
+
 
 # --- TAB 3: MEMORY MANAGEMENT ---
 with tab3:
@@ -296,12 +314,13 @@ with tab3:
         st.markdown("---")
         st.subheader("Rollback Memories")
         rollback_max = 1
-        # Ensure there's memory to roll back
         if st.session_state.noa_instance and st.session_state.noa_instance.agent_memories:
-            # Get the length of the first agent's memory, minus the initial memory
-            first_agent_mem_len = len(next(iter(st.session_state.noa_instance.agent_memories.values()), []))
-            if first_agent_mem_len > 1:
-                rollback_max = first_agent_mem_len - 1
+            try:
+                first_agent_mem_len = len(next(iter(st.session_state.noa_instance.agent_memories.values()), []))
+                if first_agent_mem_len > 1:
+                    rollback_max = first_agent_mem_len - 1
+            except StopIteration:
+                pass # No agents to iterate over
 
         n_steps = st.number_input("Steps to roll back", 1, rollback_max, 1, key="rollback_steps")
         

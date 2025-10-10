@@ -1,117 +1,121 @@
+
 import functools
 import json
 from typing import TypedDict, Dict, List, Annotated
-from langchain_core.output_parsers import JsonOutputParser
-from langgraph.graph import StateGraph, END
-from utils import strip_think_tags
+import operator
+from langgraph.graph import StateGraph, START, END
+from utils import strip_think_tags, extract_json_from_llm_response
+from chains import FRAGMENTATION_PROMPT
+
+# This function will be used to merge updates to dictionaries from parallel agent runs.
+def merge_dict_updates(x: dict, y: dict) -> dict:
+    return {**x, **y}
 
 class AgentState(TypedDict):
     """
     Represents the state of our agent simulation graph.
-
-    Attributes:
-        agent_prompts: Maps agent names to their full system prompts.
-        agent_llms: Maps agent names to their configured LLM instances.
-        agent_memories: Maps agent names to their memory logs.
-        turn_messages: A list of messages exchanged in the current turn.
-        final_reactions: The collected public reactions from all agents.
-        user_action: The initial action that kicks off the simulation.
-        is_local: A boolean indicating if the LLM is running locally.
+    We use `Annotated` to provide a "reducer" function for keys that
+    are updated by multiple agents in parallel. This tells the graph
+    how to merge the parallel updates.
     """
     agent_prompts: Dict[str, str]
     agent_llms: Dict[str, any]
-    agent_memories: Dict[str, List[str]]
-    turn_messages: List[Dict[str, str]]
-    final_reactions: Dict[str, str]
     user_action: str
     is_local: bool
+
+    # For dictionaries, we merge them.
+    final_reactions: Annotated[dict, merge_dict_updates]
+    agent_memories: Annotated[dict, merge_dict_updates]
+    fragmented_prompts: Annotated[dict, merge_dict_updates]
+
+    # For lists, we concatenate them using the `add` operator.
+    turn_messages: Annotated[list, operator.add]
+
 
 def agent_node_fn(state: AgentState, agent_name: str) -> dict:
     """
     The core function that executes for each agent node in the graph.
+    This now includes an attention fragmentation stage.
     """
-    print(f"--- EXECUTING AGENT: {agent_name} ---")
-    
-    # 1. Get the specific LLM for this agent
+    print(f"--- STAGE 1: FRAGMENTING ATTENTION for {agent_name} ---")
     llm = state['agent_llms'][agent_name]
+    full_system_prompt = state['agent_prompts'][agent_name]
+    user_action = state['user_action']
     
-    # 2. Assemble the full prompt
-    system_prompt = state['agent_prompts'][agent_name]
+    from langchain_core.output_parsers import StrOutputParser
+    fragmentation_chain = FRAGMENTATION_PROMPT | llm | StrOutputParser()
+    
+    sub_system_prompt_str = fragmentation_chain.invoke({
+        "system_prompt": full_system_prompt,
+        "user_action": user_action,
+        "this_persona_memory": "\n".join(state['agent_memories'][agent_name])
+    })
+    sub_system_prompt = strip_think_tags(sub_system_prompt_str)
+    print(f"Fragmented prompt for {agent_name}: {sub_system_prompt}")
+    
+    print(f"--- STAGE 2: EXECUTING AGENT: {agent_name} (with fragmented prompt) ---")
     memory = "\n".join(state['agent_memories'][agent_name])
     
-    # Inject the user action and memory into the prompt template
-    # This assumes the placeholders {{action}} and {{this_persona_memory}} exist
-    formatted_prompt = system_prompt.replace("{{action}}", state['user_action'])
-    formatted_prompt = formatted_prompt.replace("{this_persona_memory}", memory)
+    formatted_prompt = sub_system_prompt.replace("{{action}}", user_action)
+    formatted_prompt = formatted_prompt.replace("{{this_persona_memory}}", memory)
     
-    # 3. Invoke the LLM
     try:
         raw_response = llm.invoke(formatted_prompt)
-        # Handle difference between local (Ollama) and remote (Gemini) responses
-        if not state.get('is_local', True) and hasattr(raw_response, 'content'):
-            response_str = strip_think_tags(raw_response.content)
-        else:
-            response_str = strip_think_tags(raw_response)
-        response_json = json.loads(response_str)
+        response_content = raw_response.content if not state.get('is_local', True) and hasattr(raw_response, 'content') else raw_response
+        response_json = extract_json_from_llm_response(strip_think_tags(response_content))
+        if not isinstance(response_json, dict):
+            raise json.JSONDecodeError("Extracted content is not a JSON object", response_content, 0)
 
-    except (json.JSONDecodeError, AttributeError, TypeError) as e:
-        # Fallback if the LLM fails to produce valid JSON
-        print(f"Error decoding LLM response for {agent_name}: {e}. Using raw response as public reaction.")
-        response_json = {"public_reaction": str(response_str), "private_message": None}
+    except Exception as e:
+        print(f"Error processing LLM response for {agent_name}: {e}. Defaulting response.")
+        response_json = {"public_reaction": "I am unable to process this right now.", "private_message": None}
 
-    # 4. Process the response
     public_reaction = response_json.get("public_reaction", "")
     private_message = response_json.get("private_message")
     
-    # 5. Update state
-    # Add the public reaction to the final collection
-    new_final_reactions = state.get('final_reactions', {}).copy()
-    new_final_reactions[agent_name] = public_reaction
-
-    # Add any private messages to the turn's message log
-    new_turn_messages = state.get('turn_messages', []).copy()
-    if private_message and "to" in private_message and "content" in private_message:
-        new_turn_messages.append({
+    # Each node now returns its own small piece of the final state
+    final_reaction_update = {agent_name: public_reaction}
+    
+    turn_message_update = []
+    if private_message and isinstance(private_message, dict) and "to" in private_message and "content" in private_message:
+        turn_message_update.append({
             "from": agent_name,
             "to": private_message["to"],
             "content": private_message["content"]
         })
     
-    # Update this agent's memory
-    new_agent_memories = state.get('agent_memories', {}).copy()
+    current_memory = state['agent_memories'].get(agent_name, [])
     memory_log = f"[Turn] Reacted publicly: '{public_reaction}'."
-    if private_message:
-        memory_log += f" || Messaged {private_message['to']}: '{private_message['content']}'."
-    new_agent_memories[agent_name].append(memory_log)
+    if private_message and isinstance(private_message, dict) and private_message.get('to'):
+        memory_log += f" || Messaged {private_message['to']}: '{private_message.get('content', '')}'."
+    
+    agent_memory_update = {agent_name: current_memory + [memory_log]}
+    fragmented_prompt_update = {agent_name: sub_system_prompt}
     
     return {
-        "final_reactions": new_final_reactions,
-        "turn_messages": new_turn_messages,
-        "agent_memories": new_agent_memories
+        "final_reactions": final_reaction_update,
+        "turn_messages": turn_message_update,
+        "agent_memories": agent_memory_update,
+        "fragmented_prompts": fragmented_prompt_update
     }
-
 
 def create_agent_graph(agent_configs: Dict[str, Dict]):
     """
     Creates and compiles the LangGraph instance for the agent simulation.
-
-    Args:
-        agent_configs: A dictionary where keys are agent names and values are dicts
-                       containing 'prompt' and 'llm' for each agent.
     """
     workflow = StateGraph(AgentState)
-    
     agent_names = list(agent_configs.keys())
     
-    # Add a node for each agent, dynamically binding the agent's name
+    if not agent_names:
+        return workflow.compile()
+
     for name in agent_names:
         node_fn = functools.partial(agent_node_fn, agent_name=name)
         workflow.add_node(name, node_fn)
 
-    # The entry point for the graph is to run all agent nodes in parallel
-    workflow.set_entry_point(agent_names)
-
-    # After each agent runs, the simulation ends for this turn.
+    for name in agent_names:
+        workflow.add_edge(START, name)
+    
     for name in agent_names:
         workflow.add_edge(name, END)
         
