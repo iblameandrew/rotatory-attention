@@ -1,6 +1,6 @@
-
 import functools
 import json
+import time
 from typing import TypedDict, Dict, List, Annotated
 import operator
 from langgraph.graph import StateGraph, START, END
@@ -21,7 +21,8 @@ class AgentState(TypedDict):
     agent_prompts: Dict[str, str]
     agent_llms: Dict[str, any]
     user_action: str
-    is_local: bool
+    provider: str
+    target_agents: List[str]
 
     # For dictionaries, we merge them.
     final_reactions: Annotated[dict, merge_dict_updates]
@@ -32,10 +33,10 @@ class AgentState(TypedDict):
     turn_messages: Annotated[list, operator.add]
 
 
-def agent_node_fn(state: AgentState, agent_name: str) -> dict:
+def agent_node_fn(state: AgentState, agent_name: str, max_retries=3) -> dict:
     """
     The core function that executes for each agent node in the graph.
-    This now includes an attention fragmentation stage.
+    This now includes an attention fragmentation stage and retry logic.
     """
     print(f"--- STAGE 1: FRAGMENTING ATTENTION for {agent_name} ---")
     llm = state['agent_llms'][agent_name]
@@ -45,31 +46,63 @@ def agent_node_fn(state: AgentState, agent_name: str) -> dict:
     from langchain_core.output_parsers import StrOutputParser
     fragmentation_chain = FRAGMENTATION_PROMPT | llm | StrOutputParser()
     
-    sub_system_prompt_str = fragmentation_chain.invoke({
-        "system_prompt": full_system_prompt,
-        "user_action": user_action,
-        "this_persona_memory": "\n".join(state['agent_memories'][agent_name])
-    })
-    sub_system_prompt = strip_think_tags(sub_system_prompt_str)
-    print(f"Fragmented prompt for {agent_name}: {sub_system_prompt}")
+    sub_system_prompt_str = ""
+    # Retry logic for the fragmentation call
+    for attempt in range(max_retries):
+        try:
+            result = fragmentation_chain.invoke({
+                "system_prompt": full_system_prompt,
+                "user_action": user_action,
+                "this_persona_memory": "\n".join(state['agent_memories'][agent_name])
+            })
+            if result and result.strip():
+                sub_system_prompt_str = result
+                break # Success
+        except Exception as e:
+            print(f"[{agent_name} Fragmentation] Attempt {attempt + 1}/{max_retries} failed: {e}. Retrying...")
+            time.sleep(1.5 ** attempt)
+
+    # If fragmentation fails, fallback to the full prompt to ensure the agent can still run
+    if not sub_system_prompt_str:
+        print(f"Warning: [{agent_name}] Fragmentation failed after {max_retries} attempts. Using full system prompt.")
+        sub_system_prompt = full_system_prompt
+    else:
+        sub_system_prompt = strip_think_tags(sub_system_prompt_str)
+        
+    print(f"Fragmented prompt for {agent_name} generated.")
+    print(f"Fragmented prompt: {sub_system_prompt}")
     
-    print(f"--- STAGE 2: EXECUTING AGENT: {agent_name} (with fragmented prompt) ---")
+    print(f"--- STAGE 2: EXECUTING AGENT: {agent_name} (with {'fragmented' if sub_system_prompt_str else 'full'} prompt) ---")
     memory = "\n".join(state['agent_memories'][agent_name])
     
     formatted_prompt = sub_system_prompt.replace("{{action}}", user_action)
     formatted_prompt = formatted_prompt.replace("{{this_persona_memory}}", memory)
     
-    try:
-        raw_response = llm.invoke(formatted_prompt)
-        response_content = raw_response.content if not state.get('is_local', True) and hasattr(raw_response, 'content') else raw_response
-        response_json = extract_json_from_llm_response(strip_think_tags(response_content))
-        if not isinstance(response_json, dict):
-            raise json.JSONDecodeError("Extracted content is not a JSON object", response_content, 0)
+    response_json = None
+    # Retry logic for the main agent execution call
+    for attempt in range(max_retries):
+        try:
+            raw_response = llm.invoke(formatted_prompt)
+            response_content = raw_response.content if state.get('provider') != 'local' and hasattr(raw_response, 'content') else raw_response
+            parsed_json = extract_json_from_llm_response(strip_think_tags(response_content))
+            
+            if not isinstance(parsed_json, dict) or not parsed_json:
+                raise ValueError("Extracted content is not a valid, non-empty JSON object.")
+            
+            response_json = parsed_json
+            break # Success
+        except Exception as e:
+            print(f"[{agent_name} Execution] Attempt {attempt + 1}/{max_retries} failed: {e}. Retrying...")
+            if attempt < max_retries - 1:
+                time.sleep(1.5 ** attempt)
 
-    except Exception as e:
-        print(f"Error processing LLM response for {agent_name}: {e}. Defaulting response.")
+    # If all execution retries fail, use a default response
+    if response_json is None:
+        print(f"Error: All retries failed for agent {agent_name}. Defaulting response.")
         response_json = {"public_reaction": "I am unable to process this right now.", "private_message": None}
 
+    print(f"Response from agent {agent_name} received.")
+    print(f"Answer: {response_json}")
     public_reaction = response_json.get("public_reaction", "")
     private_message = response_json.get("private_message")
     
@@ -85,7 +118,8 @@ def agent_node_fn(state: AgentState, agent_name: str) -> dict:
         })
     
     current_memory = state['agent_memories'].get(agent_name, [])
-    memory_log = f"[Turn] Reacted publicly: '{public_reaction}'."
+    user_action_observed = state['user_action']
+    memory_log = f"[Turn] Observed: '{user_action_observed}'. || My reaction: Reacted publicly: '{public_reaction}'."
     if private_message and isinstance(private_message, dict) and private_message.get('to'):
         memory_log += f" || Messaged {private_message['to']}: '{private_message.get('content', '')}'."
     
@@ -99,9 +133,26 @@ def agent_node_fn(state: AgentState, agent_name: str) -> dict:
         "fragmented_prompts": fragmented_prompt_update
     }
 
+def route_action(state: AgentState) -> List[str]:
+    """
+    This function is now used directly in the conditional edge logic.
+    It inspects the state to determine which agent(s) should act.
+    """
+    targets = state.get('target_agents')
+    
+    if targets:
+        print(f"--- ROUTING to specific agents: {', '.join(targets)} ---")
+        return targets
+    
+    all_agents = list(state['agent_prompts'].keys())
+    print(f"--- ROUTING to all agents (broadcast) ---")
+    return all_agents
+
+
 def create_agent_graph(agent_configs: Dict[str, Dict]):
     """
     Creates and compiles the LangGraph instance for the agent simulation.
+    Includes a router to direct actions to specific or all agents.
     """
     workflow = StateGraph(AgentState)
     agent_names = list(agent_configs.keys())
@@ -109,15 +160,18 @@ def create_agent_graph(agent_configs: Dict[str, Dict]):
     if not agent_names:
         return workflow.compile()
 
+    # Add a node for each agent
     for name in agent_names:
         node_fn = functools.partial(agent_node_fn, agent_name=name)
         workflow.add_node(name, node_fn)
-
-    for name in agent_names:
-        workflow.add_edge(START, name)
-    
-    for name in agent_names:
+        # After each agent runs, it ends the workflow for that branch
         workflow.add_edge(name, END)
+
+    workflow.add_conditional_edges(
+        START,
+        route_action,
+        {name: name for name in agent_names}
+    )
         
-    print(f"Graph created with nodes: {', '.join(agent_names)}")
+    print(f"Graph created with nodes: {', '.join(agent_names)} and a conditional entrypoint.")
     return workflow.compile()

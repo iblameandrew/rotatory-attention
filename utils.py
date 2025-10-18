@@ -89,14 +89,13 @@ def strip_think_tags(text: str) -> str:
 # --- Astrological Data Functions (from astro.py) ---
 class TokenBudgetManager(BaseCallbackHandler):
     """
-    A callback handler to track and enforce a token budget using tiktoken.
+    A callback handler to track prompt and completion tokens separately using tiktoken.
     This method is provider-agnostic and works by tokenizing inputs and outputs.
     """
-    def __init__(self, initial_budget: int, model_name: str = "gpt-4"):
+    def __init__(self, model_name: str = "gpt-4"):
         """
         Initializes the token budget manager.
         Args:
-            initial_budget: The total number of tokens allowed for the entire run.
             model_name: The name of the model being used, to select the correct tokenizer.
                         Defaults to "gpt-4", but will fall back to a general-purpose tokenizer.
         """
@@ -108,8 +107,8 @@ class TokenBudgetManager(BaseCallbackHandler):
             print(f"Warning: Model '{model_name}' not found for tokenization. Using 'cl100k_base' encoding as a fallback.")
             self.encoding = tiktoken.get_encoding("cl100k_base")
             
-        self.token_budget = initial_budget
-        self.total_tokens_used = 0
+        self.total_prompt_tokens_used = 0
+        self.total_completion_tokens_used = 0
         self._prompt_tokens = 0
 
     def on_llm_start(self, serialized: Dict[str, Any], prompts: List[str], **kwargs) -> None:
@@ -125,24 +124,18 @@ class TokenBudgetManager(BaseCallbackHandler):
             for generation in generations:
                 completion_tokens += len(self.encoding.encode(generation.text))
         
-        # Calculate total tokens for this specific API call
-        call_total_tokens = self._prompt_tokens + completion_tokens
-        
-        # Update the cumulative total and the remaining budget
-        self.total_tokens_used += call_total_tokens
-        self.token_budget -= call_total_tokens
+        # Update the cumulative totals
+        self.total_prompt_tokens_used += self._prompt_tokens
+        self.total_completion_tokens_used += completion_tokens
 
         print(
-            f"Tokens used: [Prompt: {self._prompt_tokens}, Completion: {completion_tokens}, Total: {call_total_tokens}]. "
-            f"Cumulative used: {self.total_tokens_used}. Budget remaining: {self.token_budget}"
+            f"Tokens used this call: [Prompt: {self._prompt_tokens}, Completion: {completion_tokens}]. "
+            f"Cumulative: [Prompt: {self.total_prompt_tokens_used}, Completion: {self.total_completion_tokens_used}]"
         )
-
-        # Check if the budget has been exceeded
-        if self.token_budget <= 0:
-            raise ValueError(f"Token budget exhausted. Halting execution. Total tokens used: {self.total_tokens_used}")
 
         # Reset prompt tokens for the next call
         self._prompt_tokens = 0
+
 
 def trim_astrological_report(full_report_text: str) -> str:
     """Trims the full astrological report to only major aspects for LLM analysis."""

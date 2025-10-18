@@ -12,6 +12,7 @@ setup(
         "langchain",
         "langchain-google-genai",
         "langchain-community",
+        "langchain_openai",
         "langgraph",
         "kerykeion",
         "pytz",
