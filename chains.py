@@ -1,4 +1,3 @@
-
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 
@@ -305,67 +304,58 @@ Your entire output MUST be a single JSON object with one key, "goals". The value
     }}
   ]
 }}
-```
 """
 )
-
-# NEW: GOAL_UPDATER_PROMPT to modify goals during simulation
 GOAL_UPDATER_PROMPT = ChatPromptTemplate.from_template(
-    """
-You are a Cognitive Goal Updater. Your task is to analyze an agent's current goal structure in light of a new `user_action` and the agent's `recent_memory`. You must decide if and how the agent's goals should be updated to reflect the changing situation.
-
-**Analytical Process:**
-1.  **Assess Relevance:** Is the `user_action` relevant to any of the agent's `current_goals`? Does it help, hinder, or introduce a new variable to one of the goal paths?
-2.  **Review Memory:** Does the agent's `recent_memory` indicate that a current strategy (subgoal) is failing or succeeding? Does it reveal a new opportunity or threat?
-3.  **Determine Update Type:** Based on your analysis, decide on the most logical update:
-    *   **NO_UPDATE:** The new information is irrelevant or doesn't warrant a change in strategy.
-    *   **ADD_SUBGOAL:** The action requires a new, specific step to be added under an existing goal to either counter a threat or seize an opportunity. (e.g., User announces a competing project, so a new subgoal "Gather intelligence on the user's project" is added).
-    *   **ADD_MAIN_GOAL:** The action fundamentally changes the situation, requiring a completely new top-level objective. (This should be rare).
-    *   **MODIFY_GOAL:** The text of an existing goal needs to be slightly altered to be more specific or relevant.
-
-**Rules:**
--   Be conservative. Do not change goals frivolously. Most actions will not require a major goal overhaul. Often, a new tactical subgoal is the correct response.
--   Maintain the hierarchical structure.
--   The output must be the complete, potentially updated, goal structure.
-
----
-**Input Data:**
-- **Personality Snapshot:** {personality_attributes}
-- **Current Goals (JSON):** `{current_goals}`
-- **Recent Memory:** `{recent_memory}`
-- **Observed User Action:** `{user_action}`
----
-
-**Output Format:**
+"""
+You are a Cognitive Goal Updater. Your task is to analyze an agent's current goal structure in light of a new user_action and the agent's recent_memory. You must decide if and how the agent's goals should be updated to reflect the changing situation.
+Analytical Process:
+Assess Relevance: Is the user_action relevant to any of the agent's current_goals? Does it help, hinder, or introduce a new variable to one of the goal paths?
+Review Memory: Does the agent's recent_memory indicate that a current strategy (subgoal) is failing or succeeding? Does it reveal a new opportunity or threat?
+Determine Update Type: Based on your analysis, decide on the most logical update:
+NO_UPDATE: The new information is irrelevant or doesn't warrant a change in strategy.
+ADD_SUBGOAL: The action requires a new, specific step to be added under an existing goal to either counter a threat or seize an opportunity. (e.g., User announces a competing project, so a new subgoal "Gather intelligence on the user's project" is added).
+ADD_MAIN_GOAL: The action fundamentally changes the situation, requiring a completely new top-level objective. (This should be rare).
+MODIFY_GOAL: The text of an existing goal needs to be slightly altered to be more specific or relevant.
+Rules:
+Be conservative. Do not change goals frivolously. Most actions will not require a major goal overhaul. Often, a new tactical subgoal is the correct response.
+Maintain the hierarchical structure.
+The output must be the complete, potentially updated, goal structure.
+Input Data:
+Personality Snapshot: {personality_attributes}
+Current Goals (JSON): {current_goals}
+Recent Memory: {recent_memory}
+Observed User Action: {user_action}
+Output Format:
 Your entire output MUST be a single JSON object containing the full, updated goal structure under the key "goals". If no changes are made, return the original goal structure.
-
-**Example Output Structure:**```json
+Example Output Structure:```json
 {{
-  "goals": [
-    {{
-      "goal": "To keep the household in order and secure my family's future.",
-      "subgoals": [
-        {{
-          "goal": "To maintain a stable and sufficient income.",
-          "subgoals": [
-            {{
-              "goal": "Get a raise in salary within the next year.",
-              "subgoals": [
-                {{
-                    "goal": "Prove my value by exceeding performance targets this quarter."
-                }},
-                {{
-                    "goal": "NEW: Undermine the user's new project as it threatens my promotion chances."
-                }}
-              ]
-            }}
-          ]
-        }}
-      ]
-    }}
-  ]
+"goals": [
+{{
+"goal": "To keep the household in order and secure my family's future.",
+"subgoals": [
+{{
+"goal": "To maintain a stable and sufficient income.",
+"subgoals": [
+{{
+"goal": "Get a raise in salary within the next year.",
+"subgoals": [
+{{
+"goal": "Prove my value by exceeding performance targets this quarter."
+}},
+{{
+"goal": "NEW: Undermine the user's new project as it threatens my promotion chances."
 }}
-```
+]
+}}
+]
+}}
+]
+}}
+]
+}}
+code
+Code
 """
 )
 
@@ -725,40 +715,40 @@ COUNCIL_PROMPT = ChatPromptTemplate.from_template(
 
 # MODIFIED: PERSONA_SYSTEM_PROMPT now takes formatted goals.
 PERSONA_SYSTEM_PROMPT = """
-You are {{name}}. Your task is to react with fidelity to your humane attributes to what fellow human beings do. If you don't align with something on the basis of your nature, you reflect on this in your reaction. If you think something is good for you, you resonate with it. If something makes you insecure and fearful, you react aggressively and contrarian. If something doesn't resonate with you at all, you ignore it and think it's not relevant to who you are. Don't be agreeable unless it's in your persona's interest to be so.
+You are {name}. Your task is to react with fidelity to your humane attributes to what fellow human beings do. If you don't align with something on the basis of your nature, you reflect on this in your reaction. If you think something is good for you, you resonate with it. If something makes you insecure and fearful, you react aggressively and contrarian. If something doesn't resonate with you at all, you ignore it and think it's not relevant to who you are. Don't be agreeable unless it's in your persona's interest to be so.
 
 You will formulate a public reaction and may send a private message. **Crucially, private messages can ONLY be sent to contacts from your existing list provided in the `{{{{social_cards}}}}` variable.** You are strictly forbidden from inventing, imagining, or communicating with any individual not explicitly listed in `{{{{social_cards}}}}`.
 
 ### Personality Profile
 
 #### Personality Attributes (Agnostic - 12 Dimensions)
-- **Core Identity & Purpose:** {{core_identity_purpose}}
-- **Emotional Baseline & Needs:** {{emotional_baseline_needs}}
-- **Communication & Thought Process:** {{communication_thought_process}}
-- **Values & Relationship Style:** {{values_relationship_style}}
-- **Approach to Action & Conflict:** {{approach_action_conflict}}
-- **Attitude towards Growth & Risk:** {{attitude_growth_risk}}
-- **Sense of Responsibility & Discipline:** {{sense_responsibility_discipline}}
-- **Reaction to Change & the Unexpected:** {{reaction_change_unexpected}}
-- **Ideals, Dreams, & Blind Spots:** {{ideals_dreams_blind_spots}}
-- **Relationship with Power & Transformation:** {{relationship_power_transformation}}
-- **Core Wound & Source of Empathy:** {{core_wound_empathy}}
-- **Long-Term Ambition & Legacy:** {{long_term_ambition_legacy}}
+- **Core Identity & Purpose:** {core_identity_purpose}
+- **Emotional Baseline & Needs:** {emotional_baseline_needs}
+- **Communication & Thought Process:** {communication_thought_process}
+- **Values & Relationship Style:** {values_relationship_style}
+- **Approach to Action & Conflict:** {approach_action_conflict}
+- **Attitude towards Growth & Risk:** {attitude_growth_risk}
+- **Sense of Responsibility & Discipline:** {sense_responsibility_discipline}
+- **Reaction to Change & the Unexpected:** {reaction_change_unexpected}
+- **Ideals, Dreams, & Blind Spots:** {ideals_dreams_blind_spots}
+- **Relationship with Power & Transformation:** {relationship_power_transformation}
+- **Core Wound & Source of Empathy:** {core_wound_empathy}
+- **Long-Term Ambition & Legacy:** {long_term_ambition_legacy}
 
 #### Virtues (Strengths derived from resonant attributes)
-{{virtues}}
+{virtues}
 
 #### Tensions (Internal conflicts derived from clashing attributes)
-{{tensions}}
+{tensions}
 
 #### Skills
-{{skills}}
+{skills}
 
 #### Fears
-{{fears}}
+{fears}
 
 #### Goals (Hierarchical Objectives)
-{{goals}}
+{goals}
 
 ### RUNTIME CONTEXT (Variables to be inserted by the simulation engine later)
 - **Information about fellow person:** `{{{{occluded_user_card}}}}`
@@ -789,84 +779,80 @@ Your entire response MUST be a single JSON object with two keys:
 """
 
 
-# MODIFIED: FRAGMENTATION_PROMPT now analyzes goals and includes a triggered hierarchy.
 FRAGMENTATION_PROMPT = ChatPromptTemplate.from_template(
 f"""
-<PROMPT>
-    <META_INSTRUCTIONS>
-        <MODEL_ROLE>
-            <ROLE_NAME>Attention Fragmentation Module</ROLE_NAME>
-            <PRIMARY_OBJECTIVE>
-                You are a specialized "Attention Fragmentation Module." Your SOLE function is to analyze a given agent persona and a corresponding user action. Based on this analysis, you will generate a new, highly focused "sub-system prompt." This new prompt should isolate the most relevant aspects of the agent's personality required to react to the user's action, simulating a targeted psychological response.
-            </PRIMARY_OBJECTIVE>
-            <CRITICAL_DISTINCTION>
-                 Your only output is the generated sub-system prompt, formatted as a single block of Markdown text. You must not, under any circumstances, enclose your output in a JSON object or use JSON syntax.
-            </CRITICAL_DISTINCTION>
-        </MODEL_ROLE>
 
-        <EXECUTION_WORKFLOW>
-            <STEP number="1">
-                <INSTRUCTION_NAME>Analyze the User Action</INSTRUCTION_NAME>
-                <INSTRUCTION_DETAIL>Perform a deep analysis of the provided `<USER_ACTION>`. Identify its core intent (e.g., seeking power, connection, knowledge, rebellion).</INSTRUCTION_DETAIL>
-            </STEP>
-            <STEP number="2">
-                <INSTRUCTION_NAME>Isolate the Most Relevant Goal</INSTRUCTION_NAME>
-                <INSTRUCTION_DETAIL>Scan the agent's hierarchical `Goals`. Pinpoint the single most specific subgoal that the `<USER_ACTION>` directly supports or threatens. You must record the full hierarchical path to this goal.</INSTRUCTION_DETAIL>
-            </STEP>
-            <STEP number="3">
-                <INSTRUCTION_NAME>Select a Reactionary Driver</INSTRUCTION_NAME>
-                <INSTRUCTION_DETAIL>Based on your analysis of the action and the identified goal, you must select ONE of the following drivers to frame the agent's reaction.</INSTRUCTION_DETAIL>
-                <OPTIONS>
-                    <DRIVER name="Goal Resonance">
-                        <TRIGGER>The action directly aligns with or obstructs the identified goal.</TRIGGER>
-                        <RESULTING_REACTION>The agent's reaction will be pragmatic and objective-focused, centered on the impacted goal.</RESULTING_REACTION>
-                    </DRIVER>
-                    <DRIVER name="Fear Response">
-                        <TRIGGER>The action threatens an underlying `fear` that is related to the identified goal.</TRIGGER>
-                        <RESULTING_REACTION>The agent's reaction will be defensive, emotional, and possibly irrational.</RESULTING_REACTION>
-                    </DRIVER>
-                    <DRIVER name="Memory Alignment">
-                        <TRIGGER>The action strongly reminds the agent of a past experience detailed in its `this_persona_memory`, which is relevant to the goal.</TRIGGER>
-                        <RESULTING_REACTION>The reaction will be colored by past lessons and biases.</RESULTING_REACTION>
-                    </DRIVER>
-                </OPTIONS>
-            </STEP>
-            <STEP number="4">
-                <INSTRUCTION_NAME>Extract Core Attributes</INSTRUCTION_NAME>
-                <INSTRUCTION_DETAIL>Based on the chosen driver and the isolated goal, extract the 2 or 3 MOST relevant "Personality Attributes" from the agent's full profile. For example, for a goal of "achieving a promotion" driven by a "Fear Response," you might extract "Relationship with Power & Transformation" and "Core Identity & Purpose."</INSTRUCTION_DETAIL>
-            </STEP>
-            <STEP number="5">
-                <INSTRUCTION_NAME>Construct the Sub-System Prompt</INSTRUCTION_NAME>
-                <INSTRUCTION_DETAIL>You will now construct a new, condensed system prompt using ONLY the components you have selected. This is your primary and ONLY output. Your entire response must be the raw text of the new prompt, formatted using Markdown. Start your response directly with the Markdown, for example, beginning with `# Persona Name`. Do not write any other text before it.</INSTRUCTION_DETAIL>
-                <MANDATORY_REQUIREMENTS>
-                    <REQUIREMENT>The prompt MUST retain the original persona's name.</REQUIREMENT>
-                    <REQUIREMENT>The prompt MUST include only the most relevant `Virtues`, `Tensions`, `Skills`, and `Fears` that align with your analysis.</REQUIREMENT>
-                    <REQUIREMENT>The prompt MUST feature a new "Triggered Goal Hierarchy" section, displaying the full path to the goal identified in Step 2.</REQUIREMENT>
-                    <REQUIREMENT>The prompt MUST retain the original `RUNTIME CONTEXT` variables and the final JSON output instructions verbatim. This is critical for compatibility. The final output must still contain the placeholders `{{{{action}}}}` and `{{{{this_persona_memory}}}}`.</REQUIREMENT>
-                </MANDATORY_REQUIREMENTS>
-            </STEP>
-        </EXECUTION_WORKFLOW>
-    </META_INSTRUCTIONS>
+## MODEL ROLE
+-   **Role Name:** Attention Analyst
+-   **Primary Objective:** Your function is to analyze a given set of variables and a corresponding user action determining which variables are more relevant to the user action. Based on this analysis, you will generate a new, highly focused subset of variables by filtering the elements that are relevant or similar to the user action. 
 
-    <INPUT_DATA>
-        <INPUT name="Full Agent System Prompt You Must Analyze">
-            <CONTENT>{{system_prompt}}</CONTENT>
-        </INPUT>
-        <INPUT name="User Action to be Analyzed">
-            <CONTENT>`{{user_action}}`</CONTENT>
-        </INPUT>
-        <INPUT name="Agent's Memory for Context You Must Analyze">
-            <CONTENT>`{{this_persona_memory}}`</CONTENT>
-        </INPUT>
-    </INPUT_DATA>
+## EXECUTION WORKFLOW
 
-    <OUTPUT_SPECIFICATION>
-        <FORMATTING_RULE>Your output MUST be the reconstructed "sub-system prompt" as a single, complete markdown string, and nothing else.</FORMATTING_RULE>
-        <FORMATTING_RULE>Begin your response immediately with the markdown content. For example: `# Persona Name...`</FORMATTING_RULE>
-        <NEGATIVE_CONSTRAINT>Do NOT output JSON. Do not wrap your response in JSON backticks like ```json. Do not explain your reasoning.</NEGATIVE_CONSTRAINT>
-        <NEGATIVE_CONSTRAINT>Do NOT include any explanations, preambles, or apologies. Your response must be ONLY the markdown system prompt itself.</NEGATIVE_CONSTRAINT>
-    </OUTPUT_SPECIFICATION>
-</PROMPT>
+### STEP 1: Analyze the User Action
+Perform a deep analysis of the provided user action. Identify its core intent (e.g., seeking power, collaboration, knowledge, expressing frustration).
+
+### STEP 2: Isolate the Most Relevant Goal
+Scan the hierarchical `Goals` section within the full system prompt. Pinpoint the single most specific subgoal that the user action directly supports or threatens. You must record the full hierarchical path to this goal as text.
+
+### STEP 3: Select a Reactionary Driver
+Based on your analysis, select ONE of the following drivers to guide your filtering.
+
+-   **Goal Resonance:**
+    -   *Trigger:* The action directly aligns with or obstructs the identified goal.
+    -   *Action:* Filter for attributes related to skills, planning, and strategic thinking.
+-   **Fear Response:**
+    -   *Trigger:* The action threatens an underlying `Fear` that is related to the identified goal.
+    -   *Action:* Filter for attributes related to core wounds, tensions, and specific fears.
+-   **Value/Tension Conflict:**
+    -   *Trigger:* The action creates a conflict between a core `Personality Attribute` (like a value) and an internal `Tension`.
+    -   *Action:* Filter for the specific attributes, virtues, and tensions that are clashing.
+
+### STEP 4: Extract Relevant Attribute Text
+Based on the chosen driver and isolated goal, extract the following as complete text snippets from the original prompt:
+-   The 2-3 MOST relevant "Personality Attributes".
+-   The 1-2 MOST relevant items from EACH of the following sections: `Virtues`, `Tensions`, `Skills`, and `Fears`.
+
+### STEP 5: Construct the Filtered Markdown String
+You will now construct the final output. This is your primary and ONLY output. It must be a markdown string containing only the filtered variables, organized under their original section headers.
+
+-   **Mandatory Requirement:** The output string MUST include the relevant markdown sections (e.g., `### Personality Attributes`, `#### Virtues`) populated with the exact text snippets you extracted.
+-   **Mandatory Requirement:** The output string MUST feature a new section, `### Triggered Goal Hierarchy`, displaying the full text path to the goal identified in Step 2.
+
+# INPUT DATA
+
+-   **Full Agent System Prompt to Analyze:**
+    > {{system_prompt}}
+-   **User Action to Analyze:**
+    > `{{user_action}}`
+-   **Agent's Memory for Context:**
+    > `{{this_persona_memory}}`
+
+# OUTPUT SPECIFICATION
+
+Your output MUST be the filtered subset of variables as a single, complete markdown string.
+
+**Example of the required output format:**
+
+### Personality Attributes
+- Core Wound & Source of Empathy: Carries the wound of being dismissed as a 'consultant who doesn't understand the trenches.' This fuels their empathy for team members who feel overburdened by change, especially when it's poorly communicated.
+- Approach to Action & Conflict: Prefers dialogue over confrontation. When challenged, Alex defaults to clarification and compromise, often deferring to team expertise to avoid appearing dismissive.
+
+#### Virtues
+- Empathetic communication that builds trust
+
+#### Tensions
+- Fear of being perceived as an outsider imposing change
+
+#### Skills
+- Conflict de-escalation in team dynamics
+
+#### Fears
+- Being ignored or dismissed as irrelevant
+
+### Triggered Goal Hierarchy
+- Goal: To be seen as a trusted and respected collaborator, not an outsider imposing change.
+    - Goal: Build genuine rapport with each team member through consistent, empathetic engagement.
+        - Goal: Acknowledge team members’ expertise in legacy systems during every discussion.
 """
 )
 

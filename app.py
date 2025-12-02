@@ -122,7 +122,7 @@ update_sidebar_metrics()
 
 
 # --- Main Feature Tabs ---
-tab1, tab_profiler, tab2, tab5, tab3, tab4 = st.tabs(["🌐 Network Simulation", "👤 Profiler", "💡 Venue Recommendations", "📅 Social Forecast", "🧠 Memory Management", "📝 Edit Agents"])
+tab1, tab_profiler, tab3, tab4 = st.tabs(["🌐 Network Simulation", "👤 Profiler",  "🧠 Memory Management", "📝 Edit Agents"])
 
 with tab1:
     # --- PHASE 1: SETUP ---
@@ -160,7 +160,7 @@ with tab1:
             if st.session_state.provider == 'OpenRouter':
                 st.selectbox("Model Name", ["google/gemini-flash-1.5:free"], key="openrouter_model")
             elif st.session_state.provider == 'Ollama (Local)':
-                st.text_input("Model Name", "qwen3:30b-a3b-thinking-2507-q4_K_M", key="model_name")
+                st.text_input("Model Name", "dengcao/Qwen3-30B-A3B-Instruct-2507:latest", key="model_name")
             elif st.session_state.provider == 'Google Gemini':
                 st.text_input("Model Name", "gemini-2.5-flash", key="model_name")
             # No model input needed for Longcat as it's specific
@@ -354,37 +354,6 @@ with tab1:
 
                             st.markdown(f"#### Public Reaction")
                             st.info(reaction)
-                            st.markdown(f"#### Analysis of Reaction")
-                            if fragmented_prompt:
-                                # Display Triggered Attributes
-                                st.markdown("**Triggered Attributes:**")
-                                try:
-                                    if "#### Personality Attributes" in fragmented_prompt:
-                                        attributes_section_raw = fragmented_prompt.split("#### Personality Attributes")[1]
-                                        attributes_section = attributes_section_raw.split("####")[0]
-                                        triggered_attributes = re.findall(r"- \*\*(.*?):\*\*(.*)", attributes_section)
-                                        if triggered_attributes:
-                                            for attr_name, definition in triggered_attributes:
-                                                st.markdown(f"🔥 **{attr_name.strip()}:** {definition.strip()}")
-                                        else:
-                                            st.warning("Attribute section found, but no attributes could be parsed.")
-                                    else:
-                                        st.info("No specific personality attributes were triggered for this reaction.")
-                                except (IndexError, AttributeError):
-                                    st.warning("Could not parse triggered attributes.")
-
-                                # Display Triggered Goal Hierarchy
-                                st.markdown("**Triggered Goal Hierarchy:**")
-                                try:
-                                    if "#### Triggered Goal Hierarchy" in fragmented_prompt:
-                                        goal_section_raw = fragmented_prompt.split("#### Triggered Goal Hierarchy")[1]
-                                        goal_section = goal_section_raw.split("####")[0]
-                                        st.markdown(goal_section.strip())
-                                    else:
-                                        st.info("The action did not specifically trigger a goal for this agent.")
-                                except (IndexError, AttributeError):
-                                    st.warning("Could not parse triggered goals from the fragmented prompt.")
-
                             st.markdown("---")
                             st.markdown("#### Full Agent Profile")
                             tab_profile, tab_social, tab_memory = st.tabs(["Personality", "Social Context", "Memory"])
@@ -526,7 +495,7 @@ with tab_profiler:
         if st.session_state.profiler_provider == 'OpenRouter':
             st.selectbox("Model Name", ["google/gemini-flash-1.5:free"], key="profiler_openrouter_model")
         elif st.session_state.profiler_provider == 'Ollama (Local)':
-            st.text_input("Model Name", "qwen3:30b-a3b-thinking-2507-q4_K_M", key="profiler_model_name")
+            st.text_input("Model Name", "dengcao/Qwen3-30B-A3B-Instruct-2507:latest", key="profiler_model_name")
         elif st.session_state.profiler_provider == 'Google Gemini':
             st.text_input("Model Name", "gemini-2.5-flash", key="profiler_model_name")
 
@@ -593,206 +562,6 @@ with tab_profiler:
             st.info("Generate a character to see their astrological RPG profile here.")
 
 
-# --- TAB 2: VENUE RECOMMENDATIONS ---
-with tab2:
-    st.header("Get Social Scenario Recommendations")
-    st.markdown("Based on a person's birth date, this feature generates social scenarios, independent of the main simulation.")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        rec_birth_date = st.date_input("Enter a Birth Date",datetime.datetime.now(), key="rec_bday")
-
-        st.subheader("LLM Configuration")
-        st.selectbox("LLM Provider", ["Google Gemini", "Ollama (Local)", "OpenRouter", "Longcat Flash Chat"], key="rec_provider")
-        
-        if st.session_state.rec_provider == 'OpenRouter':
-            st.selectbox("Model Name", ["google/gemini-flash-1.5:free"], key="rec_openrouter_model")        
-        elif st.session_state.rec_provider == 'Ollama (Local)':
-            st.text_input("Model Name", "qwen3:30b-a3b-thinking-2507-q4_K_M", key="rec_model_name")
-        elif st.session_state.rec_provider == 'Google Gemini':
-            st.text_input("Model Name", "gemini-2.5-flash", key="rec_model_name")
-        # No model input needed for Longcat
-
-    if st.button("💡 Get Recommendations", type="primary"):
-        with st.spinner("Generating recommendations..."):
-            try:
-                if not st.session_state.get('token_manager'):
-                    st.session_state.token_manager = TokenBudgetManager()
-                
-                callbacks = [st.session_state.token_manager]
-                
-                provider_map = {
-                    "Google Gemini": "google",
-                    "Ollama (Local)": "local",
-                    "OpenRouter": "openrouter",
-                    "Longcat Flash Chat": "longcat"
-                }
-                selected_provider = provider_map[st.session_state.rec_provider]
-                
-                temp_llm = None
-                model_to_use = ""
-
-                if selected_provider == 'local':
-                    model_to_use = st.session_state.rec_model_name
-                    temp_llm = OllamaLLM(model=model_to_use, format="json", callbacks=callbacks)
-                elif selected_provider == 'openrouter':
-                    openrouter_api_key = os.getenv("OPEN_ROUTER")
-                    if not openrouter_api_key:
-                        st.error("OPEN_ROUTER environment variable must be set. Please add it to your .env file.")
-                        st.stop()
-                    
-                    model_to_use = st.session_state.rec_openrouter_model
-                    temp_llm = ChatOpenAI(
-                        api_key=openrouter_api_key,
-                        base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-                        model=model_to_use,
-                        callbacks=callbacks, max_retries=6,
-                        model_kwargs={"response_format": {"type": "json_object"}},
-                        default_headers={"HTTP-Referer": os.getenv("YOUR_SITE_URL", ""), "X-Title": os.getenv("YOUR_SITE_NAME", "")}
-                    )
-                elif selected_provider == 'longcat':
-                    longcat_api_key = os.getenv("LONGCAT_API")
-                    longcat_base_url = os.getenv("LONGCAT_URL")
-                    if not longcat_api_key or not longcat_base_url:
-                        st.error("LONGCAT_API and/or LONGCAT_URL environment variables must be set.")
-                        st.stop()
-
-                    model_to_use = "longcat-flash-chat"
-                    temp_llm = ChatOpenAI(
-                        api_key=longcat_api_key, base_url=longcat_base_url,
-                        model=model_to_use, callbacks=callbacks, max_retries=6,
-                        model_kwargs={"response_format": {"type": "json_object"}}
-                    )
-                else: # Google
-                    gemini_api_key = os.getenv("GEMINI_API_KEY")
-                    model_to_use = st.session_state.rec_model_name
-                    temp_llm = ChatGoogleGenerativeAI(
-                        model=model_to_use, google_api_key=gemini_api_key,
-                        generation_config={"response_mime_type": "application/json"}, callbacks=callbacks, max_retries=6
-                    )
-
-                recommendations = NOA.recommend(
-                    llm=temp_llm,
-                    user_birth_date=rec_birth_date.strftime('%Y-%m-%d'),
-                )
-                recommendations_list = recommendations.get('recommendations', [])
-                st.session_state.recommendations = recommendations_list
-                update_sidebar_metrics()
-                
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
-
-    if st.session_state.recommendations:
-        st.markdown("---")
-        st.success("Here are your recommended scenarios:")
-        for i, rec in enumerate(st.session_state.recommendations):
-            st.markdown(f"**{i+1}. {rec['title']}**")
-            st.write(rec['description'])
-            st.caption(f"💡 **Why we suggest this:** {rec.get('rationale', 'No rationale provided.')}")
-
-# --- TAB 5: SOCIAL FORECAST ---
-with tab5:
-    st.header("Generate a Social Engineering Forecast")
-    st.markdown("Compare your user profile against the archetypal 'personality' of a future date to get a strategic report.")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.info(f"Forecasting for **{st.session_state.user_name}**, born on **{st.session_state.user_birth_date.strftime('%Y-%m-%d')}**.")
-        forecast_date = st.date_input("Select a Forecast Date", datetime.date.today() + datetime.timedelta(days=1), key="forecast_date")
-
-        st.subheader("LLM Configuration")
-        st.selectbox("LLM Provider", ["Google Gemini", "Ollama (Local)", "OpenRouter", "Longcat Flash Chat"], key="forecast_provider")
-        
-        if st.session_state.forecast_provider == 'OpenRouter':
-            st.selectbox("Model Name", ["google/gemini-flash-1.5:free"], key="forecast_openrouter_model")
-        elif st.session_state.forecast_provider == 'Ollama (Local)':
-            st.text_input("Model Name", "qwen3:30b-a3b-thinking-2507-q4_K_M", key="forecast_model_name")
-        elif st.session_state.forecast_provider == 'Google Gemini':
-            st.text_input("Model Name", "gemini-2.5-flash", key="forecast_model_name")
-
-    if st.button("🔮 Generate Forecast", type="primary"):
-        with st.spinner("Generating forecast... This requires multiple LLM calls and may take a moment."):
-            try:
-                if not st.session_state.get('token_manager'):
-                    st.session_state.token_manager = TokenBudgetManager()
-                
-                callbacks = [st.session_state.token_manager]
-                
-                provider_map = {
-                    "Google Gemini": "google",
-                    "Ollama (Local)": "local",
-                    "OpenRouter": "openrouter",
-                    "Longcat Flash Chat": "longcat"
-                }
-                selected_provider = provider_map[st.session_state.forecast_provider]
-                
-                temp_llm_json = None
-                temp_llm_str = None
-                model_to_use = ""
-
-                if selected_provider == 'local':
-                    model_to_use = st.session_state.forecast_model_name
-                    temp_llm_json = OllamaLLM(model=model_to_use, format="json", callbacks=callbacks)
-                    temp_llm_str = OllamaLLM(model=model_to_use, callbacks=callbacks)
-                elif selected_provider == 'openrouter':
-                    openrouter_api_key = os.getenv("OPEN_ROUTER")
-                    if not openrouter_api_key:
-                        st.error("OPEN_ROUTER environment variable must be set.")
-                        st.stop()
-                    
-                    model_to_use = st.session_state.forecast_openrouter_model
-                    common_settings = {
-                        "api_key": openrouter_api_key,
-                        "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-                        "model": model_to_use, "callbacks": callbacks, "max_retries": 6,
-                        "default_headers": {"HTTP-Referer": os.getenv("YOUR_SITE_URL", ""), "X-Title": os.getenv("YOUR_SITE_NAME", "")}
-                    }
-                    temp_llm_json = ChatOpenAI(**common_settings, model_kwargs={"response_format": {"type": "json_object"}})
-                    temp_llm_str = ChatOpenAI(**common_settings)
-                elif selected_provider == 'longcat':
-                    longcat_api_key = os.getenv("LONGCAT_API")
-                    longcat_base_url = os.getenv("LONGCAT_URL")
-                    if not longcat_api_key or not longcat_base_url:
-                        st.error("LONGCAT_API and/or LONGCAT_URL environment variables must be set.")
-                        st.stop()
-
-                    model_to_use = "longcat-flash-chat"
-                    common_settings = {
-                        "api_key": longcat_api_key, "base_url": longcat_base_url,
-                        "model": model_to_use, "callbacks": callbacks, "max_retries": 6,
-                    }
-                    temp_llm_json = ChatOpenAI(**common_settings, model_kwargs={"response_format": {"type": "json_object"}})
-                    temp_llm_str = ChatOpenAI(**common_settings)
-                else: # Google
-                    gemini_api_key = os.getenv("GEMINI_API_KEY")
-                    model_to_use = st.session_state.forecast_model_name
-                    common_settings = {
-                        "model": model_to_use, "google_api_key": gemini_api_key,
-                        "callbacks": callbacks, "max_retries": 6
-                    }
-                    temp_llm_json = ChatGoogleGenerativeAI(**common_settings, generation_config={"response_mime_type": "application/json"})
-                    temp_llm_str = ChatGoogleGenerativeAI(**common_settings)
-
-                forecast_report = NOA.forecast(
-                    llm=temp_llm_json,
-                    str_llm=temp_llm_str,
-                    user_birth_date=st.session_state.user_birth_date.strftime('%Y-%m-%d'),
-                    forecast_date=forecast_date.strftime('%Y-%m-%d'),
-                )
-                st.session_state.forecast_report = forecast_report
-                update_sidebar_metrics()
-                
-            except Exception as e:
-                st.error(f"An error occurred during forecast generation: {e}")
-
-    if st.session_state.forecast_report:
-        st.markdown("---")
-        st.success("Your forecast is ready:")
-        st.markdown(st.session_state.forecast_report)
-
-# --- TAB 3: MEMORY MANAGEMENT ---
 with tab3:
     st.header("Manage Agent Memory")
     st.markdown("Roll back the simulation by removing the last set of memories from each agent.")

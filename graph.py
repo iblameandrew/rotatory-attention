@@ -7,6 +7,45 @@ from langgraph.graph import StateGraph, START, END
 from utils import strip_think_tags, extract_json_from_llm_response
 from chains import FRAGMENTATION_PROMPT
 
+# --- START OF CORRECTION ---
+
+def _prepare_prompt_for_fragmentation(full_prompt: str) -> str:
+    """
+    Extracts only the core data sections of a persona's prompt (attributes, goals, etc.)
+    for analysis. This prevents the fragmentation LLM from being confused by the
+    imperative instructions (like "You are X" or "Your response must be JSON").
+    """
+    try:
+        # Find the start of the data we want to keep
+        start_marker = "### Personality Profile"
+        if start_marker not in full_prompt:
+            raise IndexError("Start marker not found")
+        
+        # Find the end of the data we want to keep
+        end_marker = "### Your Response"
+        if end_marker not in full_prompt:
+            raise IndexError("End marker not found")
+
+        # Extract the text between the markers
+        start_index = full_prompt.find(start_marker)
+        end_index = full_prompt.find(end_marker)
+
+        suffix_section = full_prompt[end_index:]
+        prefix_section = full_prompt[:start_index]
+        
+        main_body = full_prompt[start_index:end_index]
+        
+        # Return a clean block of text prefixed with a non-imperative header for clarity
+        return f"### Agent Profile Data for Analysis\n{main_body.strip()}", suffix_section, prefix_section
+
+    except IndexError as e:
+        print(f"Warning: Could not parse prompt for sanitization due to missing marker: {e}. "
+              "Using the full prompt for fragmentation, which may be less accurate.")
+        # Fallback to returning the whole prompt if markers are missing
+        return full_prompt
+
+# --- END OF CORRECTION ---
+
 # This function will be used to merge updates to dictionaries from parallel agent runs.
 def merge_dict_updates(x: dict, y: dict) -> dict:
     return {**x, **y}
@@ -14,9 +53,6 @@ def merge_dict_updates(x: dict, y: dict) -> dict:
 class AgentState(TypedDict):
     """
     Represents the state of our agent simulation graph.
-    We use `Annotated` to provide a "reducer" function for keys that
-    are updated by multiple agents in parallel. This tells the graph
-    how to merge the parallel updates.
     """
     agent_prompts: Dict[str, str]
     agent_llms: Dict[str, any]
@@ -24,62 +60,29 @@ class AgentState(TypedDict):
     provider: str
     target_agents: List[str]
 
-    # For dictionaries, we merge them.
     final_reactions: Annotated[dict, merge_dict_updates]
     agent_memories: Annotated[dict, merge_dict_updates]
     fragmented_prompts: Annotated[dict, merge_dict_updates]
-
-    # For lists, we concatenate them using the `add` operator.
     turn_messages: Annotated[list, operator.add]
 
 
 def agent_node_fn(state: AgentState, agent_name: str, max_retries=3) -> dict:
     """
     The core function that executes for each agent node in the graph.
-    This now includes an attention fragmentation stage and retry logic.
     """
     print(f"--- STAGE 1: FRAGMENTING ATTENTION for {agent_name} ---")
     llm = state['agent_llms'][agent_name]
     full_system_prompt = state['agent_prompts'][agent_name]
     user_action = state['user_action']
-    
-    from langchain_core.output_parsers import StrOutputParser
-    fragmentation_chain = FRAGMENTATION_PROMPT | llm | StrOutputParser()
-    
-    sub_system_prompt_str = ""
-    # Retry logic for the fragmentation call
-    for attempt in range(max_retries):
-        try:
-            result = fragmentation_chain.invoke({
-                "system_prompt": full_system_prompt,
-                "user_action": user_action,
-                "this_persona_memory": "\n".join(state['agent_memories'][agent_name])
-            })
-            if result and result.strip():
-                sub_system_prompt_str = result
-                break # Success
-        except Exception as e:
-            print(f"[{agent_name} Fragmentation] Attempt {attempt + 1}/{max_retries} failed: {e}. Retrying...")
-            time.sleep(1.5 ** attempt)
 
-    # If fragmentation fails, fallback to the full prompt to ensure the agent can still run
-    if not sub_system_prompt_str:
-        print(f"Warning: [{agent_name}] Fragmentation failed after {max_retries} attempts. Using full system prompt.")
-        sub_system_prompt = full_system_prompt
-    else:
-        sub_system_prompt = strip_think_tags(sub_system_prompt_str)
-        
-    print(f"Fragmented prompt for {agent_name} generated.")
-    print(f"Fragmented prompt: {sub_system_prompt}")
     
-    print(f"--- STAGE 2: EXECUTING AGENT: {agent_name} (with {'fragmented' if sub_system_prompt_str else 'full'} prompt) ---")
+    print(f"--- STAGE 2: EXECUTING AGENT: {agent_name} (with {'fragmented' if full_system_prompt else 'full'} prompt) ---")
     memory = "\n".join(state['agent_memories'][agent_name])
     
-    formatted_prompt = sub_system_prompt.replace("{{action}}", user_action)
+    formatted_prompt = full_system_prompt.replace("{{action}}", user_action)
     formatted_prompt = formatted_prompt.replace("{{this_persona_memory}}", memory)
     
     response_json = None
-    # Retry logic for the main agent execution call
     for attempt in range(max_retries):
         try:
             raw_response = llm.invoke(formatted_prompt)
@@ -90,13 +93,12 @@ def agent_node_fn(state: AgentState, agent_name: str, max_retries=3) -> dict:
                 raise ValueError("Extracted content is not a valid, non-empty JSON object.")
             
             response_json = parsed_json
-            break # Success
+            break 
         except Exception as e:
             print(f"[{agent_name} Execution] Attempt {attempt + 1}/{max_retries} failed: {e}. Retrying...")
             if attempt < max_retries - 1:
                 time.sleep(1.5 ** attempt)
 
-    # If all execution retries fail, use a default response
     if response_json is None:
         print(f"Error: All retries failed for agent {agent_name}. Defaulting response.")
         response_json = {"public_reaction": "I am unable to process this right now.", "private_message": None}
@@ -106,7 +108,6 @@ def agent_node_fn(state: AgentState, agent_name: str, max_retries=3) -> dict:
     public_reaction = response_json.get("public_reaction", "")
     private_message = response_json.get("private_message")
     
-    # Each node now returns its own small piece of the final state
     final_reaction_update = {agent_name: public_reaction}
     
     turn_message_update = []
@@ -124,7 +125,7 @@ def agent_node_fn(state: AgentState, agent_name: str, max_retries=3) -> dict:
         memory_log += f" || Messaged {private_message['to']}: '{private_message.get('content', '')}'."
     
     agent_memory_update = {agent_name: current_memory + [memory_log]}
-    fragmented_prompt_update = {agent_name: sub_system_prompt}
+    fragmented_prompt_update = {agent_name: full_system_prompt}
     
     return {
         "final_reactions": final_reaction_update,

@@ -1,4 +1,3 @@
-
 import os
 from langchain_core.messages import AIMessage
 import datetime
@@ -34,11 +33,11 @@ from chains import (
     RECOMMENDER_PROMPT,
     INTERROGATOR_PROMPT,
     RECOMMENDATION_USER_PROFILE_PROMPT,
-    PERSONA_SYSTEM_PROMPT,
     GROUP_PERCEPTION_PROMPT,
     FORECAST_PROMPT, # NEW
     RPG_CLASS_PROMPT, # NEW
-    PERSONA_FROM_USER_CARD_PROMPT # NEW
+    PERSONA_FROM_USER_CARD_PROMPT,
+    PERSONA_SYSTEM_PROMPT
 )
 from graph import create_agent_graph
 
@@ -48,6 +47,7 @@ gemini_api_key = os.getenv("GEMINI_API_KEY")
 openrouter_api_key = os.getenv("OPEN_ROUTER")
 longcat_api_key = os.getenv("LONGCAT_API")
 longcat_base_url = os.getenv("LONGCAT_URL")
+
 
 
 class NOA:
@@ -163,6 +163,10 @@ class NOA:
             if not items or not isinstance(items, list): return "- None"
             return "\n".join([f"- {item}" for item in items])
 
+        # Format memories from self.agent_memories
+        memories = self.agent_memories.get(name, [])
+        formatted_memories = "\n".join([f"- {memory}" for memory in memories]) if memories else "- No memories yet."
+
         prompt_data = {
             "name": name,
             "core_identity_purpose": attributes.get("Core Identity & Purpose", "[Not specified]"),
@@ -182,13 +186,15 @@ class NOA:
             "skills": format_list_for_prompt(persona.get('skills', [])),
             "fears": format_list_for_prompt(persona.get('fears', [])),
             "goals": self._format_goals_for_prompt(persona.get('goals', [])),
+            "memories": formatted_memories,
         }
 
         partially_filled_prompt = PERSONA_SYSTEM_PROMPT.format(**prompt_data)
         prompt_with_user_card = partially_filled_prompt.replace("{{occluded_user_card}}", self.occluded_user_cards.get(name, "No specific vision."))
+        print(f"Partially filled prompt {name}: {partially_filled_prompt}")
         social_card_text = "\n".join(self.agent_social_cards.get(name, ["You have no contacts."]))
         final_prompt = prompt_with_user_card.replace("{{social_cards}}", social_card_text)
-        
+
         return final_prompt
 
     def _create_network(self):
@@ -394,6 +400,7 @@ class NOA:
 
             for name in self.agent_personas.keys():
                 final_prompt = self._assemble_agent_prompt(name)
+                print(final_prompt)
                 self.agent_configs[name] = {
                     "prompt": final_prompt,
                     "llm": self.llm
@@ -465,12 +472,11 @@ class NOA:
 
         # Step 3 (Query-time): Assemble fresh prompts and query graph
         self._log("Step 3: Querying the agent graph...", level='detail')
-        
-        # Assemble fresh prompts with updated goals
-        fresh_agent_prompts = {name: self._assemble_agent_prompt(name) for name in all_agent_names}
+
+        agent_prompts = {name: config['prompt'] for name, config in self.agent_configs.items()}
 
         initial_state = {
-            "agent_prompts": fresh_agent_prompts,
+            "agent_prompts": agent_prompts,
             "agent_llms": {name: config['llm'] for name, config in self.agent_configs.items()},
             "str_llm": self.str_llm,
             "agent_memories": self.agent_memories,
@@ -672,4 +678,3 @@ class NOA:
                 new_len = max(1, len(memory_list) - n)
                 self.agent_memories[name] = memory_list[:new_len]
         return "Rollback complete."
-
