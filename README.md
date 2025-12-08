@@ -1,4 +1,4 @@
-# Causality: A Social Simulation Sandbox 🚀
+# Causality: A Social Simulation Sandbox PoC 🚀
 
 <img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/bef7c8bc-a92a-477c-b0f8-401bbc71d10b" />
 
@@ -8,7 +8,10 @@ Hello and welcome! 👋 I'm so glad you've found your way to this little project
 Think of it as a flight simulator for social situations and politics. It lets you test out actions and conversations in a simulated environment, populated by psychologically-grounded AI agents, so you can navigate real-life scenarios with more wisdom, confidence, and empathy. My hope is that it can be a truly empowering tool for personal growth. ❤️
 
 
-![Grabación 2025-12-02 151509](https://github.com/user-attachments/assets/b5d5ea64-0691-42f1-82c8-87bdd4694713)
+
+
+https://github.com/user-attachments/assets/37467dce-1428-4a02-951a-1d2d71f110f0
+
 
 
 ## 💾 Installation
