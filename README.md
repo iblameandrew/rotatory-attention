@@ -9,11 +9,6 @@ Think of it as a flight simulator for social situations and politics. It lets yo
 
 
 
-
-https://github.com/user-attachments/assets/37467dce-1428-4a02-951a-1d2d71f110f0
-
-
-
 ## 💾 Installation
 
 Getting started is pretty straightforward. Just follow these steps, and you'll have your own local social simulator running in no time!
