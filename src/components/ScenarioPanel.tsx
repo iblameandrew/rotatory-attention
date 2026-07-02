@@ -3,6 +3,8 @@ import { useAppStore } from '../store/appStore';
 export function ScenarioPanel() {
   const scenario = useAppStore((s) => s.scenario);
   const isGenerating = useAppStore((s) => s.isGenerating);
+  const isGeneratingPersonas = useAppStore((s) => s.isGeneratingPersonas);
+  const personaProgress = useAppStore((s) => s.personaProgress);
   const cells = useAppStore((s) => s.cells);
   const setScenario = useAppStore((s) => s.setScenario);
   const generateScenario = useAppStore((s) => s.generateScenario);
@@ -23,10 +25,22 @@ export function ScenarioPanel() {
       <button
         className="primary"
         onClick={generateScenario}
-        disabled={isGenerating || !scenario.trim()}
+        disabled={(isGenerating || isGeneratingPersonas) || !scenario.trim()}
       >
-        {isGenerating ? 'Decomposing...' : 'Decompose Scenario'}
+        {isGenerating
+          ? 'Decomposing...'
+          : isGeneratingPersonas
+            ? `Emanating personas (${personaProgress.completed}/${personaProgress.total})...`
+            : 'Decompose Scenario'}
       </button>
+      {isGeneratingPersonas && personaProgress.total > 0 && (
+        <div className="progress-bar">
+          <div
+            className="progress-fill"
+            style={{ width: `${(personaProgress.completed / personaProgress.total) * 100}%` }}
+          />
+        </div>
+      )}
       {cells.length > 0 && (
         <div className="stats">
           <span className="stat related">{cells.filter((c) => c.polarity === 'related').length} related</span>

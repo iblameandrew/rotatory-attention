@@ -12,7 +12,6 @@ function Scene() {
   const selectedCellId = useAppStore((s) => s.selectedCellId);
   const selectedForClique = useAppStore((s) => s.selectedForClique);
   const selectCell = useAppStore((s) => s.selectCell);
-  const expandPersona = useAppStore((s) => s.expandPersona);
   const incrementTick = useAppStore((s) => s.incrementTick);
 
   useEffect(() => {
@@ -46,7 +45,6 @@ function Scene() {
           isSelected={selectedCellId === cell.id}
           isCliqueSelected={selectedForClique.includes(cell.id)}
           onClick={() => selectCell(cell.id)}
-          onDoubleClick={() => expandPersona(cell.id)}
         />
       ))}
 

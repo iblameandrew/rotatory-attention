@@ -3,8 +3,7 @@ import { useAppStore } from '../store/appStore';
 export function PersonaPanel() {
   const cells = useAppStore((s) => s.cells);
   const selectedCellId = useAppStore((s) => s.selectedCellId);
-  const isExpandingPersona = useAppStore((s) => s.isExpandingPersona);
-  const expandPersona = useAppStore((s) => s.expandPersona);
+  const isGeneratingPersonas = useAppStore((s) => s.isGeneratingPersonas);
 
   const cell = cells.find((c) => c.id === selectedCellId);
 
@@ -12,7 +11,7 @@ export function PersonaPanel() {
     return (
       <section className="panel persona-panel empty">
         <h2>Persona</h2>
-        <p className="hint">Click a cell to select. Double-click to emanate a persona.</p>
+        <p className="hint">Click a cell to inspect its persona.</p>
       </section>
     );
   }
@@ -27,14 +26,8 @@ export function PersonaPanel() {
 
       {!cell.persona ? (
         <div className="expand-prompt">
-          <p>This cell awaits personality emanation.</p>
-          <button
-            className="primary"
-            onClick={() => expandPersona(cell.id)}
-            disabled={isExpandingPersona}
-          >
-            {isExpandingPersona ? 'Emanating...' : 'Emanate Persona'}
-          </button>
+          <p>Emanating persona...</p>
+          {isGeneratingPersonas && <div className="gestating-pulse" />}
         </div>
       ) : (
         <div className="persona-detail">

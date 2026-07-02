@@ -11,7 +11,6 @@ interface Props {
   isSelected: boolean;
   isCliqueSelected: boolean;
   onClick: () => void;
-  onDoubleClick: () => void;
 }
 
 const RELATED_VERB = '#4ecdc4';
@@ -25,7 +24,6 @@ export function VoxelCell({
   isSelected,
   isCliqueSelected,
   onClick,
-  onDoubleClick,
 }: Props) {
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
@@ -51,23 +49,28 @@ export function VoxelCell({
       ? Math.sin(t * 12) * 0.15 * cell.reactionIntensity
       : 0;
     const breathe = Math.sin(t * 1.5 + cell.gridZ * 0.5) * 0.02;
+    const gestating = !cell.persona ? Math.sin(t * 5 + cell.gridX) * 0.06 : 0;
 
-    meshRef.current.position.y = 0.3 + listenPulse + reactBounce + breathe + conwayOffset;
+    meshRef.current.position.y = 0.3 + listenPulse + reactBounce + breathe + gestating + conwayOffset;
     meshRef.current.rotation.y = Math.sin(t * 0.5 + cell.gridX) * 0.08;
 
     if (glowRef.current) {
       const glowScale = cell.isReacting
         ? 1.3 + Math.sin(t * 10) * 0.2
-        : cell.isListening
-          ? 1.1 + Math.sin(t * 2) * 0.05
-          : 1;
+        : !cell.persona
+          ? 1.15 + Math.sin(t * 4) * 0.1
+          : cell.isListening
+            ? 1.1 + Math.sin(t * 2) * 0.05
+            : 1;
       glowRef.current.scale.setScalar(glowScale);
       const mat = glowRef.current.material as THREE.MeshBasicMaterial;
       mat.opacity = cell.isReacting
         ? 0.5 * cell.reactionIntensity
-        : cell.isListening
-          ? 0.15 + Math.sin(t * 2) * 0.08
-          : 0.05;
+        : !cell.persona
+          ? 0.25 + Math.sin(t * 4) * 0.12
+          : cell.isListening
+            ? 0.15 + Math.sin(t * 2) * 0.08
+            : 0.05;
     }
   });
 
@@ -77,7 +80,9 @@ export function VoxelCell({
       ? 0.5
       : isCliqueSelected
         ? 0.4
-        : 0.15;
+        : !cell.persona
+          ? 0.35 + Math.sin(tick * 0.5) * 0.1
+          : 0.15;
 
   return (
     <group position={[wx, 0, wz]}>
@@ -97,10 +102,6 @@ export function VoxelCell({
         onClick={(e) => {
           e.stopPropagation();
           onClick();
-        }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          onDoubleClick();
         }}
         castShadow
       >
@@ -143,13 +144,24 @@ export function VoxelCell({
         {cell.type === 'verb' ? 'V' : 'N'}
       </Text>
 
-      {cell.persona && (
+      {cell.persona ? (
         <mesh position={[0, 1.5, 0]}>
           <sphereGeometry args={[0.08, 8, 8]} />
           <meshStandardMaterial
             color="#a29bfe"
             emissive="#a29bfe"
             emissiveIntensity={0.6}
+          />
+        </mesh>
+      ) : (
+        <mesh position={[0, 1.5, 0]}>
+          <sphereGeometry args={[0.05, 6, 6]} />
+          <meshStandardMaterial
+            color="#ffeaa7"
+            emissive="#ffeaa7"
+            emissiveIntensity={0.8}
+            transparent
+            opacity={0.7}
           />
         </mesh>
       )}

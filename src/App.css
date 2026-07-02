@@ -377,6 +377,35 @@ details pre {
   margin-bottom: 12px;
 }
 
+.gestating-pulse {
+  width: 40px;
+  height: 40px;
+  margin: 12px auto 0;
+  border-radius: 50%;
+  background: #ffeaa733;
+  animation: gestate 1.5s ease-in-out infinite;
+}
+
+@keyframes gestate {
+  0%, 100% { transform: scale(0.8); opacity: 0.4; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+.progress-bar {
+  height: 4px;
+  background: #2d3436;
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
 .legend {
   position: absolute;
   bottom: 12px;

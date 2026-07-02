@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { v4 as uuid } from 'uuid';
 import { initOpenRouter } from '../lib/openrouter';
 import { generateWords } from '../lib/wordGenerator';
-import { generatePersona } from '../lib/personaGenerator';
+import { generateAllPersonas } from '../lib/personaGenerator';
 import { computeGridPositions } from '../lib/gridLayout';
 import { createSuperCell, findResonantNeighbors } from '../lib/cliqueManager';
 import type { SuperCell, WordCell } from '../types';
@@ -17,7 +17,8 @@ interface AppState {
   selectedCellId: string | null;
   selectedForClique: string[];
   isGenerating: boolean;
-  isExpandingPersona: boolean;
+  isGeneratingPersonas: boolean;
+  personaProgress: { completed: number; total: number };
   lastUtterance: string;
   error: string | null;
   tick: number;
@@ -26,7 +27,6 @@ interface AppState {
   setModelSlug: (slug: string) => void;
   setScenario: (s: string) => void;
   generateScenario: () => Promise<void>;
-  expandPersona: (cellId: string) => Promise<void>;
   selectCell: (id: string | null) => void;
   toggleCliqueSelection: (id: string) => void;
   formClique: () => void;
@@ -69,7 +69,8 @@ export const useAppStore = create<AppState>()(
       selectedCellId: null,
       selectedForClique: [],
       isGenerating: false,
-      isExpandingPersona: false,
+      isGeneratingPersonas: false,
+      personaProgress: { completed: 0, total: 0 },
       lastUtterance: '',
       error: null,
       tick: 0,
@@ -97,35 +98,29 @@ export const useAppStore = create<AppState>()(
           initOpenRouter(apiKey);
           const words = await generateWords(modelSlug, scenario);
           const cells = buildCells(words.related, words.antonyms);
-          set({ cells, superCells: [], selectedCellId: null, selectedForClique: [] });
+          set({
+            cells,
+            superCells: [],
+            selectedCellId: null,
+            selectedForClique: [],
+            isGenerating: false,
+            isGeneratingPersonas: true,
+            personaProgress: { completed: 0, total: cells.length },
+          });
+
+          await generateAllPersonas(modelSlug, cells, scenario, (personas, completed, total) => {
+            set({
+              cells: get().cells.map((c) => {
+                const persona = personas.get(c.id);
+                return persona ? { ...c, persona } : c;
+              }),
+              personaProgress: { completed, total },
+            });
+          });
         } catch (e) {
           set({ error: e instanceof Error ? e.message : 'Generation failed' });
         } finally {
-          set({ isGenerating: false });
-        }
-      },
-
-      expandPersona: async (cellId) => {
-        const { apiKey, modelSlug, scenario, cells } = get();
-        const cell = cells.find((c) => c.id === cellId);
-        if (!cell || cell.persona) return;
-        if (!apiKey) {
-          set({ error: 'API key required.' });
-          return;
-        }
-
-        set({ isExpandingPersona: true, error: null });
-        try {
-          initOpenRouter(apiKey);
-          const persona = await generatePersona(modelSlug, cell, scenario);
-          set({
-            cells: cells.map((c) => (c.id === cellId ? { ...c, persona } : c)),
-            selectedCellId: cellId,
-          });
-        } catch (e) {
-          set({ error: e instanceof Error ? e.message : 'Persona expansion failed' });
-        } finally {
-          set({ isExpandingPersona: false });
+          set({ isGenerating: false, isGeneratingPersonas: false });
         }
       },
 
