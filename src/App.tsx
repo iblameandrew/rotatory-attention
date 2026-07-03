@@ -38,7 +38,7 @@ export default function App() {
       <header className="header">
         <div className="header-inner">
           <div className="header-text">
-            <h1>Causality</h1>
+            <h1>Rotatory Attention</h1>
             <p>Closed-system semantic decomposition · Two cardinalities · Living voxel personas</p>
           </div>
           <nav className="mobile-tabs" aria-label="Panel navigation">

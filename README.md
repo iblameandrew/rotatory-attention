@@ -1,16 +1,16 @@
 <p align="center">
   <img
     src="https://raw.githubusercontent.com/iblameandrew/causality/main/public/banner-tree-rings.jpg"
-    alt="Causality — organic tree with hierarchical rotating attention rings"
+    alt="Rotatory Attention — organic tree with hierarchical rotating attention rings"
     width="100%"
   />
 </p>
 
-# Causality
+# Rotatory Attention
 
 **Work in progress.**
 
-Causality is an experiment in hyperrealistic simulation — modeling how people react to a given set of words, and how the impulse of those initial words sets an entire closed system in motion, branching into new scenarios, personas, and collective behavior.
+Rotatory Attention is an experiment in hyperrealistic simulation — modeling how people react to a given set of words, and how the impulse of those initial words sets an entire closed system in motion, branching into new scenarios, personas, and collective behavior.
 
 ---
 
