@@ -12,12 +12,6 @@
 
 Causality is an experiment in hyperrealistic simulation — modeling how people react to a given set of words, and how the impulse of those initial words sets an entire closed system in motion, branching into new scenarios, personas, and collective behavior.
 
-Think of each cell not as a static node, but as a **living tree**: an organic form rooted in history, with branches that reach into the present, and **rings that rotate** around it at different speeds. Fast rings at the canopy catch what is immediate. Slower rings along the branches cycle through lived memory. The deepest ring at the roots turns almost imperceptibly — surfacing what the cell has always carried.
-
-A scenario is decomposed into verbs and nouns arranged on a semantic gradient. Each word becomes one of these trees — a cell with its own personality, memory, and disposition. When language is uttered into the field, cells resonate through their current rings, cluster, and recombine — propagating the first impulse outward like growth through meaning itself.
-
-The aim is not a static word cloud, but a breathing forest where initial conditions matter: the words you seed determine who emerges, how they hear you, and what scenarios unfold from the first spark.
-
 ---
 
 ## Rotatory Attention
