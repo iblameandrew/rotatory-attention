@@ -1,7 +1,7 @@
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/iblameandrew/causality/main/public/banner-tree-rings.jpg"
-    alt="Rotatory Attention — organic tree with hierarchical rotating attention rings"
+    src="https://raw.githubusercontent.com/iblameandrew/causality/main/public/banner-pixel-rings.jpg"
+    alt="Rotatory Attention — pixel art of infinitely nested rotating rings"
     width="100%"
   />
 </p>
