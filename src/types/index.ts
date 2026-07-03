@@ -8,6 +8,8 @@ export interface WordCell {
   polarity: WordPolarity;
   gridX: number;
   gridZ: number;
+  semanticX: number;
+  semanticY: number;
   persona?: Persona;
   isListening: boolean;
   isReacting: boolean;
@@ -43,9 +45,16 @@ export interface SuperCell {
   centerZ: number;
 }
 
+export interface GeneratedWord {
+  word: string;
+  type: WordType;
+  semanticX: number;
+  semanticY: number;
+}
+
 export interface GeneratedWords {
-  related: { word: string; type: WordType }[];
-  antonyms: { word: string; type: WordType }[];
+  related: GeneratedWord[];
+  antonyms: GeneratedWord[];
 }
 
 export interface AppSettings {

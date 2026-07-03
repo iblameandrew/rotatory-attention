@@ -15,7 +15,7 @@ npm run dev
 
 1. Enter your [OpenRouter](https://openrouter.ai) API key and select a model slug
 2. Describe a scenario and click **Decompose Scenario**
-3. Explore the isometric voxel grid — related cells on top, antonyms below
+3. Explore the isometric voxel grid — words placed on a semantic gradient (similar close, distant far), related above antonyms
 4. Watch personas emanate across all cells automatically
 5. **Click** a cell to inspect its persona
 6. **Utter** words to make cells react; neighboring cells resonate

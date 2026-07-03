@@ -4,7 +4,8 @@ import { v4 as uuid } from 'uuid';
 import { initOpenRouter } from '../lib/openrouter';
 import { generateWords } from '../lib/wordGenerator';
 import { generateAllPersonas } from '../lib/personaGenerator';
-import { computeGridPositions } from '../lib/gridLayout';
+import { setLayoutCenter } from '../lib/gridLayout';
+import { layoutSemanticGradient } from '../lib/semanticLayout';
 import { createSuperCell, findResonantNeighbors } from '../lib/cliqueManager';
 import type { SuperCell, WordCell } from '../types';
 
@@ -36,14 +37,16 @@ interface AppState {
 }
 
 function buildCells(
-  related: { word: string; type: 'verb' | 'noun' }[],
-  antonyms: { word: string; type: 'verb' | 'noun' }[],
+  related: { word: string; type: 'verb' | 'noun'; semanticX: number; semanticY: number }[],
+  antonyms: { word: string; type: 'verb' | 'noun'; semanticX: number; semanticY: number }[],
 ): WordCell[] {
+  const { positions, centerX, centerZ } = layoutSemanticGradient(related, antonyms);
+  setLayoutCenter(centerX, centerZ);
+
   const all = [
     ...related.map((w) => ({ ...w, polarity: 'related' as const })),
     ...antonyms.map((w) => ({ ...w, polarity: 'antonym' as const })),
   ];
-  const positions = computeGridPositions(all.length);
 
   return all.map((item, i) => ({
     id: uuid(),
@@ -51,7 +54,9 @@ function buildCells(
     type: item.type,
     polarity: item.polarity,
     gridX: positions[i].x,
-    gridZ: positions[i].z + (item.polarity === 'antonym' ? 7 : 0),
+    gridZ: positions[i].z,
+    semanticX: item.semanticX,
+    semanticY: item.semanticY,
     isListening: true,
     isReacting: false,
     reactionIntensity: 0,

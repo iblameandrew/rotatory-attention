@@ -13,8 +13,9 @@ export function ScenarioPanel() {
     <section className="panel scenario-panel">
       <h2>Scenario</h2>
       <p className="hint">
-        Describe a closed system. Two cardinalities — verbs &amp; nouns — will be
-        decomposed into 50 related and 50 antonym cells.
+        Describe a closed system. Two cardinalities — verbs &amp; nouns — decompose
+        into 50 related and 50 antonym cells, laid out on a semantic gradient where
+        similar words sit close and distant words sit far apart.
       </p>
       <textarea
         value={scenario}

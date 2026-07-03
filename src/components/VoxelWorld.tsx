@@ -26,15 +26,15 @@ function Scene() {
       <directionalLight position={[-5, 8, -5]} intensity={0.3} color="#a29bfe" />
 
       <Grid
-        args={[30, 30]}
+        args={[50, 50]}
         cellSize={1.6}
-        cellThickness={0.6}
+        cellThickness={0.4}
         cellColor="#636e72"
         sectionSize={8}
-        sectionThickness={1.2}
+        sectionThickness={1}
         sectionColor="#b2bec3"
-        fadeDistance={40}
-        position={[0, -0.01, 2]}
+        fadeDistance={60}
+        position={[0, -0.01, 0]}
       />
 
       {cells.map((cell) => (
@@ -54,11 +54,11 @@ function Scene() {
 
       <OrbitControls
         makeDefault
-        target={[0, 0.5, 2]}
+        target={[0, 0.5, 0]}
         minPolarAngle={0.3}
         maxPolarAngle={Math.PI / 2.2}
-        minDistance={8}
-        maxDistance={40}
+        minDistance={10}
+        maxDistance={55}
       />
     </>
   );

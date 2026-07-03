@@ -1,3 +1,4 @@
+import { semanticDistance } from './semanticLayout';
 import type { SuperCell, WordCell } from '../types';
 
 export function createSuperCell(
@@ -27,12 +28,11 @@ export function createSuperCell(
 export function findResonantNeighbors(
   cell: WordCell,
   allCells: WordCell[],
-  radius = 2,
+  radius = 2.5,
 ): WordCell[] {
   return allCells.filter((other) => {
     if (other.id === cell.id) return false;
-    const dx = Math.abs(other.gridX - cell.gridX);
-    const dz = Math.abs(other.gridZ - cell.gridZ);
-    return dx <= radius && dz <= radius && other.polarity === cell.polarity;
+    const dist = semanticDistance(cell.gridX, cell.gridZ, other.gridX, other.gridZ);
+    return dist <= radius;
   });
 }
