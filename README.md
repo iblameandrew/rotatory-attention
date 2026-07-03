@@ -1,4 +1,10 @@
-![Causality — hierarchical rotatory attention simulation](./public/banner.jpg)
+<p align="center">
+  <img
+    src="https://raw.githubusercontent.com/iblameandrew/causality/main/public/banner.jpg"
+    alt="Causality — hierarchical rotatory attention simulation"
+    width="100%"
+  />
+</p>
 
 # Causality
 
