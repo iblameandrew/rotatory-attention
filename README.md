@@ -1,7 +1,7 @@
 <p align="center">
   <img
     src="https://raw.githubusercontent.com/iblameandrew/causality/main/public/banner.jpg"
-    alt="Causality — hierarchical rotatory attention simulation"
+    alt="Causality — organic tree with hierarchical rotating attention rings"
     width="100%"
   />
 </p>
