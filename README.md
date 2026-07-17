@@ -1,23 +1,44 @@
 # Rotatory Attention
 
-![Multi-faction chart-spawned RTS banner](public/banner.jpg)
+![Social simulacra — thoughts with agency on a shared field](public/banner.jpg)
 
-Multi-faction **auto-sim RTS** where each birth chart becomes a partisan force on a shared isometric battlefield. Units are hierarchical linguistic children of chart features (planet-in-sign roots plus aspect mixtures). Factions resolve **conflict**, **affiliation**, or **neutrality** automatically.
+**A system for social simulacra** in which a person is not a single agent, but a **field of thoughts that each carry their own agency**.
 
-Combat exchanges use **energization** and **local density** (allies/enemies nearby), not flat ATK stats.
+Every durable pattern in a psyche—drive, feeling, mind, bond, force, bound, dream—can spawn linguistic children: skills, memories, hybrid mixtures. Those children walk a shared world. When several people are present, their thoughts **collide, affiliate, or pass each other by**. The battlefield is not metaphor alone; it is an auto-sim where attention, density, and energization decide what wins the moment.
 
-## Stack
+## Idea
 
-| Layer | Tech |
+People do not think as monoliths. A single chart of temperament is a **root constellation**. From each root, a hierarchy unfolds:
+
+- **Root features** — primary modes of being (role × style), the main lines of thought that keep reappearing  
+- **Mixture features** — thoughts that only exist because two modes stand in relation (support, tension, fusion, challenge)  
+- **Hierarchical agents** — each feature expands into a named unit with attributes, skills, and memories: a thought that can act  
+
+Put two or more people on the same field and you get **partisan thought-ecologies**. One person’s structured technique may *need* another’s absorptive comprehension; elsewhere, force-thoughts grind against bound-thoughts. The system records that as **affiliation**, **conflict**, or **neutrality**, then lets the units resolve it in motion.
+
+This is social simulacra: not a dialogue of avatars saying lines, but a **swarm of semi-autonomous mental figures** whose local energy and company change how hard they hit, how long they last, and whether they bolster their kin.
+
+## What runs under the hood
+
+Temperament graphs are computed from birth data via [Kerykeion](https://github.com/g-battaglia/kerykeion) (offline lat/lng/timezone). Implementation language stays **mundane**—roles, styles, links—not horoscope prose. Astrology is only a **feature source** for the simulacra.
+
+| Layer | Role in the simulacra |
 |---|---|
-| Charts | [Kerykeion](https://github.com/g-battaglia/kerykeion) (Python, AGPL) |
-| API | FastAPI |
-| Agents | SpaceXAI / xAI (`XAI_API_KEY`, `grok-4.5`) with deterministic fallbacks |
-| Client | Vite + React + TypeScript + React Three Fiber |
+| Kerykeion + FastAPI | Turn a person into a feature graph and a multi-person relation matrix |
+| Agent expander (SpaceXAI or fallback) | Give each thought a name, skills, attributes, memories, and child thoughts |
+| React + Three.js auto-sim | Drop many people’s thought-units onto one isometric field and let them act |
 
-Astrology is used only as a **feature graph**. Public names and UI stay mundane (roles, styles, links).
+Combat is social pressure made mechanical: **energization** of a thought, plus **how many other thoughts stand nearby** (cohesion, overcrowding, focus fire). A lonely idea fights differently from one surrounded by its own lineage.
 
-**License note:** Kerykeion is AGPL-3.0. This project links it server-side; treat the combined work as AGPL-compatible if you distribute the service.
+**License note:** Kerykeion is AGPL-3.0. The library is used server-side; treat distributed combinations as AGPL-compatible if you ship the service.
+
+## Pipeline
+
+1. **Person** — birth data in; a constellation of root features out  
+2. **Emanation** — aspects become mixture thoughts; LLM/fallback expands hierarchies of agency  
+3. **Society** — pairwise stances between people (conflict / affiliation / neutrality)  
+4. **Simulacrum** — match manifest loads; units auto-seek, support, or contest  
+5. **Resolution** — each exchange weighs energy × local density, not flat stats  
 
 ## Quick start
 
@@ -32,8 +53,8 @@ python -m venv .venv
 # source .venv/bin/activate
 pip install -r requirements.txt
 copy .env.example .env   # or cp on Unix
-# Optional: set XAI_API_KEY for LLM agent generation
-# AGENT_MODE=fallback skips LLM (default for offline dev)
+# Optional: XAI_API_KEY + AGENT_MODE=llm for richer thought names and memories
+# AGENT_MODE=fallback (default) works fully offline
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -47,6 +68,8 @@ npm run dev
 
 Open http://localhost:5173 — the Vite proxy forwards `/api` to the backend.
 
+Add one or more people (presets available), **Generate match**, and watch their thought-agents take the field. Inspect any unit for lineage, memories, energization, and how crowded its aura is.
+
 ## Environment
 
 | Variable | Default | Meaning |
@@ -57,27 +80,24 @@ Open http://localhost:5173 — the Vite proxy forwards `/api` to the backend.
 | `AGENT_CACHE_DIR` | `backend/.cache/agents` | Disk cache for expansions |
 | `CORS_ORIGINS` | `http://localhost:5173` | Allowed browser origins |
 
-## Pipeline
-
-1. **Birth data** → Kerykeion natal points + aspects  
-2. **Feature graph** → root roles/styles + mixture links  
-3. **Agent trees** → LLM (or fallback) skills / attributes / memories  
-4. **Relations** → pairwise conflict / affiliation / neutrality  
-5. **Match manifest** → client auto-sim with energization × density combat  
-
 ## API
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Liveness |
-| POST | `/api/charts` | Natal summary |
-| POST | `/api/features` | Feature graph for one chart |
-| POST | `/api/match` | Full multi-faction match bootstrap |
+| POST | `/api/charts` | Person → natal feature points |
+| POST | `/api/features` | Feature graph (roots + mixtures) for one person |
+| POST | `/api/match` | Full multi-person simulacra bootstrap |
 | GET | `/api/match/{id}` | Cached match |
 
-## Demo
+## Stack
 
-Use the built-in presets (two sample charts) or enter lat/lng/timezone yourself. Offline chart math does not require GeoNames.
+| Layer | Tech |
+|---|---|
+| Charts | Kerykeion (Python, AGPL) |
+| API | FastAPI |
+| Agents | SpaceXAI / xAI (`XAI_API_KEY`, `grok-4.5`) with deterministic fallbacks |
+| Client | Vite + React + TypeScript + React Three Fiber |
 
 ## Tests
 
