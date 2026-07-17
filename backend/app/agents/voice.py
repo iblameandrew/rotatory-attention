@@ -36,7 +36,7 @@ def build_voice_prompt(
     }.get(tier, "You are a semi-autonomous thought with your own agency.")
 
     return (
-        f"You are {name}, a living thought-agent in a social simulacra field.\n"
+        f"You are {name}, a living figure in a personal mythology on a shared social field.\n"
         f"{tier_tone}\n"
         f"Core mode: {role_s} expressed through {style_s}.\n"
         f"Lineage: {lineage or name}.\n"

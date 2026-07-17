@@ -19,10 +19,10 @@ export function ChartForm() {
 
   return (
     <div>
-      <h1>Rotatory Attention</h1>
+      <h1>Mythology</h1>
       <p className="muted">
-        Social simulacra: each chart is a faction of agentic thoughts. Add as many
-        people as you want — there is no faction cap.
+        Each person is a living mythology: a faction of agentic thoughts. Add as
+        many people as you want — there is no faction cap.
       </p>
 
       <div className="faction-count-bar">

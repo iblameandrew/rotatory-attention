@@ -28,7 +28,7 @@ export function UnitDialogue({ unit }: { unit: SimUnit }) {
     <div className="dialogue">
       <h2>Dialogue</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Speak with this thought-agent. It answers from its own voice prompt.
+        Speak with this mythic figure. It answers from its own voice prompt.
       </p>
 
       <button

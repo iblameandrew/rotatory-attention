@@ -7,8 +7,8 @@ from app.config import get_settings
 settings = get_settings()
 
 app = FastAPI(
-    title="Rotatory Attention API",
-    description="Birth-chart feature graphs → hierarchical agents → multi-faction RTS match bootstrap",
+    title="Mythology API",
+    description="Personal mythologies from birth-chart feature graphs → hierarchical thought-agents → multi-faction social simulacra",
     version="0.1.0",
 )
 
