@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Rotatory Attention">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="68%">
+      <stop offset="0%" stop-color="#1a2740"/>
+      <stop offset="100%" stop-color="#070b12"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#58a6ff"/>
+      <stop offset="50%" stop-color="#3fb950"/>
+      <stop offset="100%" stop-color="#e74c3c"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- App tile -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="12.5" fill="none" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Concentric attention rings -->
+  <g fill="none" stroke-linecap="round" filter="url(#glow)">
+    <circle cx="32" cy="32" r="22" stroke="url(#ring)" stroke-width="1.6" opacity="0.55"/>
+    <circle cx="32" cy="32" r="15.5" stroke="#58a6ff" stroke-width="1.4" opacity="0.75"/>
+    <circle cx="32" cy="32" r="9.5" stroke="#8b949e" stroke-width="1.2" opacity="0.55"/>
+  </g>
+
+  <!-- Partial arc suggesting rotation -->
+  <path d="M 48.5 24 A 20 20 0 0 1 44 46"
+        fill="none" stroke="#f39c12" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Core thought / person field -->
+  <circle cx="32" cy="32" r="4.2" fill="#e6edf3"/>
+  <circle cx="32" cy="32" r="2.2" fill="#58a6ff"/>
+
+  <!-- Faction units: pyramid / cube / octa feel as simple shapes -->
+  <!-- crimson captain-like -->
+  <path d="M14 20 L18 28 L10 28 Z" fill="#e74c3c"/>
+  <!-- cyan squad cube -->
+  <rect x="44" y="14" width="7" height="7" rx="1.2" fill="#3498db" transform="rotate(18 47.5 17.5)"/>
+  <!-- green hybrid diamond -->
+  <path d="M50 40 L54 44 L50 48 L46 44 Z" fill="#2ecc71"/>
+  <!-- amber unit -->
+  <circle cx="16" cy="46" r="3.2" fill="#f39c12"/>
+</svg>
