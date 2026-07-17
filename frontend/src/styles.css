@@ -268,8 +268,12 @@ select {
 }
 
 .param-number {
-  width: 3.5rem;
+  width: 4rem;
   text-align: center;
+}
+
+.sim-params select {
+  width: 100%;
 }
 
 .faction-count-bar strong {

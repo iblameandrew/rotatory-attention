@@ -20,6 +20,7 @@ from app.domain.models import (
 )
 from app.domain.tables import faction_color
 from app.features.graph_builder import build_feature_graph
+from app.match.planet_allocation import allocate_units_per_root
 from app.match.relations import build_relations
 from app.match.spawner import flatten_agents
 
@@ -40,22 +41,21 @@ def _map_size_for_factions(n: int) -> list[int]:
 
 
 def _units_per_faction_cap(
-    units_per_planet: int,
-    root_count: int,
+    planned_root_units: int,
     mixture_count: int,
     faction_count: int,
     explicit_max: int | None,
+    peak_per_planet: int,
 ) -> int:
-    """Roster ceiling: planets × units_per_planet + mixtures, with soft total budget."""
-    natural = max(1, root_count) * max(1, units_per_planet) + max(0, mixture_count)
+    """Roster ceiling from planned planet totals + mixtures."""
+    natural = max(1, planned_root_units) + max(0, mixture_count)
     if explicit_max is not None:
         natural = min(natural, explicit_max)
     # Soft global budget so many factions stay playable
     if faction_count > 6:
-        budget = max(units_per_planet, 96 // max(1, faction_count))
-        natural = min(natural, budget * max(1, root_count // 2 + 1))
-        natural = max(natural, units_per_planet)  # at least one planet worth
-    return max(units_per_planet, natural)
+        budget = max(peak_per_planet * 2, 120 // max(1, faction_count) * peak_per_planet)
+        natural = min(natural, max(peak_per_planet, budget))
+    return max(peak_per_planet, natural)
 
 
 def build_match(
@@ -74,7 +74,10 @@ def build_match(
         settings = settings.model_copy(update={"agent_mode": options.agent_mode})
 
     max_mix = options.max_mixtures_per_chart or settings.max_mixtures_per_chart
-    units_per_planet = max(1, min(24, int(options.units_per_planet or settings.units_per_planet)))
+    units_per_planet = max(1, min(100, int(options.units_per_planet or settings.units_per_planet)))
+    spawn_mode = (options.planet_spawn_mode or "flat").strip().lower()
+    if spawn_mode not in ("flat", "hierarchical"):
+        spawn_mode = "flat"
 
     charts: list[NatalChart] = []
     graphs: list[FeatureGraph] = []
@@ -92,13 +95,17 @@ def build_match(
             settings,
             include_mixtures=options.include_mixtures,
         )
+        units_by_root = allocate_units_per_root(
+            graph.roots, units_per_planet, mode=spawn_mode
+        )
+        planned = sum(units_by_root.values())
         mix_count = len(graph.mixtures) if options.include_mixtures else 0
         max_units = _units_per_faction_cap(
-            units_per_planet=units_per_planet,
-            root_count=len(graph.roots),
+            planned_root_units=planned,
             mixture_count=mix_count,
             faction_count=len(people),
             explicit_max=options.max_units_per_faction,
+            peak_per_planet=units_per_planet,
         )
         roster = flatten_agents(
             agents,
@@ -106,6 +113,7 @@ def build_match(
             chart.chart_id,
             max_units=max_units,
             units_per_planet=units_per_planet,
+            units_by_root=units_by_root,
         )
         factions.append(
             FactionManifest(
@@ -129,6 +137,7 @@ def build_match(
             "agent_mode": settings.agent_mode,
             "people_count": len(people),
             "units_per_planet": units_per_planet,
+            "planet_spawn_mode": spawn_mode,
             "unlimited_factions": True,
         },
     )

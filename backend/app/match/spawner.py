@@ -158,10 +158,11 @@ def flatten_agents(
     faction_id: str,
     max_units: int,
     units_per_planet: int = 3,
+    units_by_root: dict[str, int] | None = None,
 ) -> list[UnitSpec]:
     """
     Build roster:
-    - Each root/planet agent contributes exactly `units_per_planet` units (capped by max_units).
+    - Each root/planet agent contributes N units (from units_by_root or flat units_per_planet).
     - Mixture agents contribute 1 hybrid each (if present).
     """
     roots_by_id = {r.id: r for r in graph.roots}
@@ -184,11 +185,14 @@ def flatten_agents(
     )
 
     roster: list[UnitSpec] = []
-    per = max(1, int(units_per_planet))
+    default_per = max(1, int(units_per_planet))
 
     for agent in root_agents:
         if len(roster) >= max_units:
             break
+        per = default_per
+        if units_by_root is not None:
+            per = max(1, int(units_by_root.get(agent.feature_id, default_per)))
         remaining = max_units - len(roster)
         want = min(per, remaining)
         for node, path, tier in _nodes_for_planet(agent, want):

@@ -13,6 +13,8 @@ export function ChartForm() {
   const error = useMatchStore((s) => s.error);
   const unitsPerPlanet = useMatchStore((s) => s.unitsPerPlanet);
   const setUnitsPerPlanet = useMatchStore((s) => s.setUnitsPerPlanet);
+  const planetSpawnMode = useMatchStore((s) => s.planetSpawnMode);
+  const setPlanetSpawnMode = useMatchStore((s) => s.setPlanetSpawnMode);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({ 0: true, 1: true });
   const [bulkCount, setBulkCount] = useState(5);
 
@@ -37,15 +39,34 @@ export function ChartForm() {
       <div className="sim-params">
         <h2>Simulation</h2>
         <div className="field">
+          <label htmlFor="planet-spawn-mode">Spawn mode</label>
+          <select
+            id="planet-spawn-mode"
+            value={planetSpawnMode}
+            onChange={(e) =>
+              setPlanetSpawnMode(
+                e.target.value === "hierarchical" ? "hierarchical" : "flat"
+              )
+            }
+          >
+            <option value="hierarchical">
+              Hierarchical (Sun & Ascendant peak; nearer to Sun get more)
+            </option>
+            <option value="flat">Flat (same count for every planet)</option>
+          </select>
+        </div>
+        <div className="field">
           <label htmlFor="units-per-planet">
-            Units per planet
+            {planetSpawnMode === "hierarchical"
+              ? "Peak units (Sun / Ascendant)"
+              : "Units per planet"}
           </label>
           <div className="param-row">
             <input
               id="units-per-planet"
               type="range"
               min={1}
-              max={12}
+              max={100}
               step={1}
               value={unitsPerPlanet}
               onChange={(e) => setUnitsPerPlanet(Number(e.target.value))}
@@ -53,7 +74,7 @@ export function ChartForm() {
             <input
               type="number"
               min={1}
-              max={24}
+              max={100}
               value={unitsPerPlanet}
               onChange={(e) => setUnitsPerPlanet(Number(e.target.value))}
               aria-label="Units per planet value"
@@ -61,8 +82,9 @@ export function ChartForm() {
             />
           </div>
           <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
-            How many thought-units emanate from each planet/root (1 = captain only;
-            higher adds squad children and variants).
+            {planetSpawnMode === "hierarchical"
+              ? "Sun and Ascendant receive this many units. Mercury, Venus, and other bodies nearer the Sun get more; outer planets get fewer (at least 1)."
+              : "Every planet/root spawns this many units (1 = captain only; higher adds squad children and variants). Max 100."}
           </p>
         </div>
       </div>

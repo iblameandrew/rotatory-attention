@@ -5,6 +5,7 @@ export async function createMatch(
   options?: {
     max_units_per_faction?: number;
     units_per_planet?: number;
+    planet_spawn_mode?: "flat" | "hierarchical";
     include_mixtures?: boolean;
   }
 ): Promise<MatchManifest> {

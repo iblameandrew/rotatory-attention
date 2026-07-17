@@ -24,7 +24,7 @@ def test_units_per_planet_respected():
     graph = FeatureGraph(chart_id="c", name="T", roots=roots, mixtures=[])
     for per in (1, 2, 3, 5, 8):
         roster = flatten_agents(
-            agents, graph, "c", max_units=100, units_per_planet=per
+            agents, graph, "c", max_units=500, units_per_planet=per
         )
         # 2 planets × per units each
         assert len(roster) == 2 * per
@@ -32,6 +32,22 @@ def test_units_per_planet_respected():
         moon = [u for u in roster if u.feature_id == "c:root:Moon"]
         assert len(sun) == per
         assert len(moon) == per
+
+
+def test_units_by_root_overrides_flat():
+    roots = [_root("Sun", 2.0), _root("Moon", 2.0)]
+    agents = [expand_root_fallback(r) for r in roots]
+    graph = FeatureGraph(chart_id="c", name="T", roots=roots, mixtures=[])
+    roster = flatten_agents(
+        agents,
+        graph,
+        "c",
+        max_units=500,
+        units_per_planet=10,
+        units_by_root={"c:root:Sun": 5, "c:root:Moon": 2},
+    )
+    assert len([u for u in roster if u.feature_id == "c:root:Sun"]) == 5
+    assert len([u for u in roster if u.feature_id == "c:root:Moon"]) == 2
 
 
 def test_units_per_planet_one_is_captain_only():

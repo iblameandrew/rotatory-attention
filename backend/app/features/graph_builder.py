@@ -23,6 +23,7 @@ def build_feature_graph(chart: NatalChart, max_mixtures: int = 8) -> FeatureGrap
             quality=p.quality,
             weight=p.weight,
             retrograde=p.retrograde,
+            abs_pos=p.abs_pos,
         )
         roots.append(root)
         point_to_root[p.name] = root

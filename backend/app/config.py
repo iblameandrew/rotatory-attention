@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     max_mixtures_per_chart: int = 8
     max_units_per_faction: int = 24
     units_per_planet: int = 3
+    planet_spawn_mode: str = "flat"  # flat | hierarchical
     prompt_version: str = "v2"
 
     @property

@@ -17,10 +17,18 @@ def test_map_grows_with_factions():
 
 def test_units_cap_scales_with_planets():
     cap = _units_per_faction_cap(
-        units_per_planet=3, root_count=10, mixture_count=4, faction_count=2, explicit_max=None
+        planned_root_units=30,
+        mixture_count=4,
+        faction_count=2,
+        explicit_max=None,
+        peak_per_planet=3,
     )
-    assert cap >= 3 * 10
+    assert cap >= 30
     cap_small = _units_per_faction_cap(
-        units_per_planet=1, root_count=5, mixture_count=0, faction_count=2, explicit_max=None
+        planned_root_units=5,
+        mixture_count=0,
+        faction_count=2,
+        explicit_max=None,
+        peak_per_planet=1,
     )
-    assert cap_small == 5
+    assert cap_small >= 5

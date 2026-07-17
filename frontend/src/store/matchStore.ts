@@ -45,8 +45,10 @@ interface Store {
   sim: SimState | null;
   playing: boolean;
   speed: number;
-  /** Simulation parameter: units spawned from each planet/root feature. */
+  /** Peak / flat unit count per planet (1–100). */
   unitsPerPlanet: number;
+  /** flat = same for all; hierarchical = Sun/Asc peak, solar-near get more. */
+  planetSpawnMode: "flat" | "hierarchical";
   selectedUnitId: string | null;
   loading: boolean;
   error: string | null;
@@ -61,6 +63,7 @@ interface Store {
   updatePerson: (index: number, patch: Partial<BirthInput>) => void;
   loadPresets: (count?: number) => void;
   setUnitsPerPlanet: (n: number) => void;
+  setPlanetSpawnMode: (m: "flat" | "hierarchical") => void;
   generate: () => Promise<void>;
   setPlaying: (v: boolean) => void;
   setSpeed: (v: number) => void;
@@ -109,6 +112,7 @@ export const useMatchStore = create<Store>((set, get) => ({
   playing: true,
   speed: 1,
   unitsPerPlanet: 3,
+  planetSpawnMode: "hierarchical",
   selectedUnitId: null,
   loading: false,
   error: null,
@@ -153,15 +157,18 @@ export const useMatchStore = create<Store>((set, get) => ({
 
   setUnitsPerPlanet: (n) =>
     set({
-      unitsPerPlanet: Math.max(1, Math.min(24, Math.floor(n) || 1)),
+      unitsPerPlanet: Math.max(1, Math.min(100, Math.floor(n) || 1)),
     }),
+  setPlanetSpawnMode: (m) => set({ planetSpawnMode: m }),
 
   generate: async () => {
     set({ loading: true, error: null });
     try {
       const unitsPerPlanet = get().unitsPerPlanet;
+      const planetSpawnMode = get().planetSpawnMode;
       const match = await createMatch(get().people, {
         units_per_planet: unitsPerPlanet,
+        planet_spawn_mode: planetSpawnMode,
         include_mixtures: true,
       });
       const sim = createSimFromMatch(match);

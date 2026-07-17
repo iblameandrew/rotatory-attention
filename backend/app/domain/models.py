@@ -69,6 +69,7 @@ class RootFeature(BaseModel):
     quality: str | None = None
     weight: float
     retrograde: bool | None = None
+    abs_pos: float | None = None
 
 
 class MixtureFeature(BaseModel):
@@ -235,8 +236,19 @@ class MatchOptions(BaseModel):
     units_per_planet: int = Field(
         default=3,
         ge=1,
-        le=24,
-        description="How many units spawn from each planet/root feature (captain + children).",
+        le=100,
+        description=(
+            "Units per planet in flat mode, or peak allocation (Sun/Ascendant) "
+            "in hierarchical mode."
+        ),
+    )
+    planet_spawn_mode: Literal["flat", "hierarchical"] = Field(
+        default="flat",
+        description=(
+            "flat: same unit count for every planet. "
+            "hierarchical: Sun and Ascendant get the most; others scale by "
+            "solar nearness / traditional distance from the Sun."
+        ),
     )
     include_mixtures: bool = True
     max_mixtures_per_chart: int | None = None
